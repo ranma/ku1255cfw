@@ -1,0 +1,86 @@
+PIN1/P1.2:         R2
+PIN2/P1.1/SDA:     R3
+PIN3/P1.0/SCL:     R0
+PIN4/P0.0/INT0:    ?NC?
+PIN5/P0.1/INT1:    ?NC?
+PIN6/P0.2:         ?NC?
+[PIN7/VDD]
+PIN8/P4.0/AIN0:    S2
+PIN9/P4.1/AIN1:    S4
+PIN10/P4.2/AIN2:   S7
+PIN11/P4.3/AIN3:   S8
+PIN12/P4.4/AIN4:   S6
+[corner]
+PIN13/P4.5/AIN5:   S3
+PIN14/P4.6/AIN6:   S12
+PIN15/P4.7/AIN7:   S13
+[PIN16/VSS]
+PIN17/P0.3:        S14
+PIN18/P0.4:        S11
+PIN19/P0.5/URX:    S10/KSO10
+PIN20/P0.6/UTX:    S15/KSO15
+PIN21/P0.7/RST
+[PIN22/XIN]
+[PIN23/XOUT]
+[PIN24/VREG25]
+[corner]
+[PIN25/VSS]
+[PIN26/D+]
+[PIN27/D-]
+[PIN28/VREG33]
+[PIN29/VDD]
+PIN30/P2.0/SCK:    S1
+PIN31/P2.1/SDO:    S5
+PIN32/P2.2/SDI:    S0
+PIN33/P2.3:        S9
+PIN34/P2.4:        trackpoint SCL
+PIN35/P2.5:        trackpoint SDA
+PIN36/P2.6:        trackpoint IRQ
+[corner]
+PIN37/P2.7:        ?NC?
+PIN38/P5.0:        ?NC?
+PIN39/P5.1:        ?NC?
+PIN40/P5.2:        ?NC?
+PIN41/P5.3/PWM0:   LED D1
+PIN42/P5.4/PWM1    ?NC?
+PIN43/P5.5/PWM2    ?NC?
+PIN44/P1.7         R1
+PIN45/P1.6         R7
+PIN46/P1.5         R6
+PIN47/P1.4:        R4
+PIN48/P1.3:        R5
+
+Keyboard connector (PCB labels):
+    R1   R6   R4   S0   R3   S1   S2   S7   S6   S12   S14   S10   MG     MM
+    R7   S9   R5   R2   S5   R0   S4   S8   S3   S13   S11   S15   ML     MR
+
+Alternative names (S230U schematic):
+  KSI1 KSI6 KSI4 KSO0 KSI3 KSO1 KSO2 KSO7 KSO6 KSO12 KSO14 KSO10 GND      IPD_MIDDLE
+  KSI7 KSO9 KSI5 KSI2 KSO5 KSI0 KSO4 KSO8 KSO3 KSO13 KSO11 KSO15 IPD_LEFT IPD_RIGHT
+
+Pin1: KSI1
+Pin2: KSI7
+[...]
+Pin27: IPD_MIDDLE
+Pin28: IPD_RIGHT
+
+Keyboard matrix (annotated ku1255_sim.py output):
+          P1.0           P1.1           P1.2           P1.3           P1.4           P1.5           P1.6           P1.7
+            R0             R3             R2             R5             R4             R6             R7             R1
+
+            UP         (none)         (none)            END         (none)          PAUSE           LEFT    KP_MEMSTORE   P0.3/S14
+        (none)           HOME         (none)            F11         (none)         (none)           DOWN         (none)   P0.4/S11
+            F5             F9 INTERNATIONAL3            F10      BACKSLASH         RETURN          SPACE      BACKSPACE   P0.5/S10
+        (none)         DELETE         (none)         INSERT    PRINTSCREEN         PAGEUP       PAGEDOWN         (none)   P0.6/S15
+            F4             F2              E              3              D              C         (none)             F3   P2.0/S1
+             H              6              U              7              J              M              N              Y   P2.1/S5
+        ESCAPE          GRAVE              Q              1              A              Z INTERNATIONAL5            TAB   P2.2/S0
+        (none)         (none)         (none)         (none)         (none)         RSHIFT         (none)         LSHIFT   P2.3/S9
+NONUSBACKSLASH             F1              W              2              S              X         (none)       CAPSLOCK   P4.0/S2
+             G              5              R              4              F              V              B              T   P4.1/S4
+INTERNATIONAL4             F8              O              9              L         PERIOD INTERNATIONAL2             F7   P4.2/S7
+    APOSTROPHE          MINUS              P              0      SEMICOLON      NONUSHASH          SLASH    LEFTBRACKET   P4.3/S8
+            F6         EQUALS              I              8              K          COMMA INTERNATIONAL1   RIGHTBRACKET   P4.4/S6
+        (none)          LCTRL         (none)         (none)         (none)          RCTRL         (none)         (none)   P4.5/S3
+          LALT KP_MEMSUBTRACT         (none)         (none)         (none)         (none)           RALT         (none)   P4.6/S12
+        (none)         (none)    KP_MEMCLEAR            F12         (none)         (none)          RIGHT           LGUI   P4.7/S13
