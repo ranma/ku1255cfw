@@ -16,10 +16,11 @@ CHIP SN8F2288
 _canary_check EQU 0x2880
 _flasher      EQU 0x2890
 UTX           EQU P0.6    ; S15
-UTTXIRQ       EQU INTRQ1.3
 URX           EQU P0.5    ; S10
 S10           EQU P0.5
 R6            EQU P1.5
+
+dispatchArg   DS 1
 
 .CODE
 ORG 0x0 ; Reset vector
@@ -52,6 +53,7 @@ _start:
 	B0MOV WDTR, A
 
 	; Set up P0.6/UTX (UART TX)
+	; FIXME: PnUR is write-only, B0BSET/B0BCLR are likely broken
 	B0BSET P0UR.6 ; Enable pull-up (UART idle is high)
 	B0BCLR P0M.6  ; Set to input (TXEN will override to output)
 	MOV A, #0x60  ; Baud 115200
@@ -74,7 +76,7 @@ _start:
 	; Jump into bootloader if "Return" key (S10/R6) is held
 	B0BSET P0M.5 ; Set S10 to output
 	B0BCLR P1M.5 ; Set R6 to input
-	B0BSET P1UR.5 ; Enable pull-up on R6
+	B0BSET P1UR.5 ; Enable pull-up on R6.
 
 	B0BSET S10   ; Set S10 high
 	CALL _delayshort
@@ -109,16 +111,176 @@ _start:
 	; - Clock is 12MHz PLL synced to external oscillator
 	; - IOs set to input
 
-	MOV A, #0
-	B0MOV Y, A
-@@:
-	MOV A, Y
-	CALL _uart_hex
-	INCMS Y
-	NOP
-	JMP @B
+	CALL _test_dispatch
+	JMP $
 
-	JMP _flasher
+_dispatch:
+	B0MOV  dispatchArg, A
+	JMP _dispatch_next
+_dispatch_loop:
+	B0MOV  A, R
+	CMPRS  A, #0      ; Jump if last entry
+	JMP _dispatch_jump_indirect
+	CALL _inc_yz      ; skip jump target
+	CALL _inc_yz
+_dispatch_next:
+	MOVC   ; Read ROM word into R (hi) and A (lo)
+	CMPRS  A, dispatchArg ; Jump if not yet equal
+	JMP _dispatch_loop
+_dispatch_jump_indirect:
+	CALL _inc_yz
+	CALL _jmp_yz
+	RET ; never reached, kept for disassembler
+
+_inc_yz:
+	INCMS Z
+	JMP @F
+	INCMS Y
+	RET
+@@:
+	RET
+
+_jmp_yz:  ; FIXME: Interrupts must be disabled
+	; DS is underspecified, but experimentally it
+	; looks like if CALL goes from level 0 to level 1,
+	; then the return PC is stored in STK0H/STK0L
+	;
+	; Level STKPB2 STKPB1 STKPB0 HighByte LowByte
+	;     0      1      1      1      n/a     n/a
+	;     1      1      1      0    STK0H   STK0L
+	;     2      1      0      1    STK1H   STK1L
+	;     [...]
+	;     6      0      0      1    STK5H   STK5L
+	;     7      0      0      0    STK6H   STK6L
+	;     8      1      1      1    STK7H   STK7L
+	B0MOV A, STKP
+	AND   A, #7
+	B0ADD PCL, A
+	JMP _set_stack_6 ; STKP 0 / Level 7
+	JMP _set_stack_5 ; STKP 1 / Level 6
+	JMP _set_stack_4 ; STKP 2 / Level 5
+	JMP _set_stack_3 ; STKP 3 / Level 4
+	JMP _set_stack_2 ; STKP 4 / Level 3
+	JMP _set_stack_1 ; STKP 5 / Level 2
+	JMP _set_stack_0 ; STKP 6 / Level 1
+	JMP _set_stack_7 ; STKP 7 / Level 8 [or 0]
+_set_stack_0:
+	B0MOV A, Y
+	B0MOV STK0H, A
+	B0MOV A, Z
+	B0MOV STK0L, A
+	RET
+_set_stack_1:
+	B0MOV A, Y
+	B0MOV STK1H, A
+	B0MOV A, Z
+	B0MOV STK1L, A
+	RET
+_set_stack_2:
+	B0MOV A, Y
+	B0MOV STK2H, A
+	B0MOV A, Z
+	B0MOV STK2L, A
+	RET
+_set_stack_3:
+	B0MOV A, Y
+	B0MOV STK3H, A
+	B0MOV A, Z
+	B0MOV STK3L, A
+	RET
+_set_stack_4:
+	B0MOV A, Y
+	B0MOV STK4H, A
+	B0MOV A, Z
+	B0MOV STK4L, A
+	RET
+_set_stack_5:
+	B0MOV A, Y
+	B0MOV STK5H, A
+	B0MOV A, Z
+	B0MOV STK5L, A
+	RET
+_set_stack_6:
+	B0MOV A, Y
+	B0MOV STK6H, A
+	B0MOV A, Z
+	B0MOV STK6L, A
+	RET
+_set_stack_7:
+	B0MOV A, Y
+	B0MOV STK7H, A
+	B0MOV A, Z
+	B0MOV STK7L, A
+	RET
+
+_test_dispatch1:
+	DW 0x0001
+	JMP _test_dispatch2
+	DW 0xFFFF
+	JMP _test_dispatch_err
+
+_test_dispatch3:
+	DW 0x0001
+	JMP _test_dispatch4
+	DW 0xFFFF
+	JMP _test_dispatch_err
+
+_test_dispatch5:
+	DW 0x0001
+	JMP _test_dispatch6
+	DW 0xFFFF
+	JMP _test_dispatch_err
+
+_test_dispatch_err:
+	MOV    A, #'E'
+	CALL _uart_tx
+	JMP $
+
+_test_dispatch:
+	; Should print "D246cba" (tested to do so on HW)
+	MOV A, #'D'
+	CALL _uart_tx
+	MOV    A, #_test_dispatch1$M
+	B0MOV  Y, A
+	MOV    A, #_test_dispatch1$L
+	B0MOV  Z, A
+	MOV    A, #1
+	CALL _dispatch
+	MOV A, #'a'
+	CALL _uart_tx
+	RET
+
+_test_dispatch2:
+	MOV A, #'2'
+	CALL _uart_tx
+	MOV    A, #_test_dispatch3$M
+	B0MOV  Y, A
+	MOV    A, #_test_dispatch3$L
+	B0MOV  Z, A
+	MOV    A, #1
+	CALL _dispatch
+	MOV A, #'b'
+	CALL _uart_tx
+	RET
+
+_test_dispatch4:
+	MOV A, #'4'
+	CALL _uart_tx
+	MOV    A, #_test_dispatch5$M
+	B0MOV  Y, A
+	MOV    A, #_test_dispatch5$L
+	B0MOV  Z, A
+	MOV    A, #1
+	CALL _dispatch
+	MOV A, #'c'
+	CALL _uart_tx
+	RET
+
+_test_dispatch6:
+	MOV A, #'6'
+	CALL _uart_tx
+	RET
+
 
 _return_held:
 	MOV A, #'E'
