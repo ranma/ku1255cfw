@@ -19,6 +19,7 @@ UTX           EQU P0.6    ; S15
 URX           EQU P0.5    ; S10
 S10           EQU P0.5
 R6            EQU P1.5
+EP0_BYTES     EQU 8
 
 dispatchArg   DS 1
 
@@ -327,6 +328,70 @@ _delayshort:
 	DECMS R
 	JMP @B
 	RET
+
+_device_descriptor:
+	DB  0x12a      ; bLength
+	DB  1          ; bDescriptorType (DEVICE)
+	DB  0x00, 0x02 ; bcdUSB (2.00)
+	DB  0, 0, 0    ; Class/Subclass/Protocol
+	DB  EP0_BYTES  ; EP0 max packet size
+	DB  0xef, 0x17 ; Vendor 0x17ef (Lenovo)
+	DB  0x47, 0x60 ; Device 0x6047 (Lenovo ThinkPad Compact Keyboard with TrackPoint)
+	DB  0x00, 0x01 ; bcdDevice (1.0)
+	DB  1          ; iManufacturer (String 1)
+	DB  2          ; iProduct (String 2)
+	DB  0          ; iSerial (n/a)
+_device_descriptor_end:
+
+_configuration_descriptor:
+	DB  9          ; bLength
+	DB  2          ; bDescriptorType (CONFIGURATION)
+	DB  0x3b, 0x00 ; wTotalLength
+	DB  2          ; bNumInterfaces
+	DB  1          ; bConfigurationValue
+	DB  0          ; iConfiguration (n/a)
+	DB  0xa0       ; bmAttributes (BUS_POWERED, REMOTE_WAKEUP)
+	DB  50         ; bMaxPower (100mA)
+
+	; Keyboard interface
+	DB  9          ; bLength
+	DB  4          ; bDescriptorType (INTERFACE)
+	DB  0          ; bInterfaceNumber
+	DB  0          ; bAlternateSetting
+	DB  1          ; bNumEndpoints
+	DB  3          ; bInterfaceClass (HID)
+	DB  1          ; bInterfaceSubClass (boot interface)
+	DB  1          ; bInterfaceProtocol (keyboard)
+	DB  0          ; iInterface (n/a)
+	DB  7          ; bLength
+	DB  5          ; bDescriptorType (ENDPOINT)
+	DB  0x81       ; bEndpointAddress (EP1 IN)
+	DB  0x03       ; bmAttributes (Interrupt, Data)
+	DB  0x08, 0x00 ; wMaxPacketSize (8 bytes)
+	DB  1          ; bInterval (1ms)
+
+	; Mouse interface
+	DB  9          ; bLength
+	DB  4          ; bDescriptorType (INTERFACE)
+	DB  1          ; bInterfaceNumber
+	DB  0          ; bAlternateSetting
+	DB  1          ; bNumEndpoints
+	DB  3          ; bInterfaceClass (HID)
+	DB  1          ; bInterfaceSubClass (boot interface)
+	DB  2          ; bInterfaceProtocol (mouse)
+	DB  0          ; iInterface (n/a)
+	DB  7          ; bLength
+	DB  5          ; bDescriptorType (ENDPOINT)
+	DB  0x82       ; bEndpointAddress (EP2 IN)
+	DB  0x03       ; bmAttributes (Interrupt, Data)
+	DB  0x08, 0x00 ; wMaxPacketSize (8 bytes)
+	DB  1          ; bInterval (1ms)
+_configuration_descriptor_end:
+
+_str_mfg:
+	DB "ranma", 0
+_str_product:
+	DB "ThinkPad Compact USB Keyboard with TrackPoint (Custom Firmware)", 0
 
 ORG 0x27ff
 	DW  0xaaaa          ; canary
