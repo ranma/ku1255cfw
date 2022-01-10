@@ -19,9 +19,42 @@ UTX           EQU P0.6    ; S15
 URX           EQU P0.5    ; S10
 S10           EQU P0.5
 R6            EQU P1.5
-EP0_BYTES     EQU 8
 
-dispatchArg   DS 1
+EP0_BYTES     EQU 8
+EP1_BYTES     EQU 8
+EP2_BYTES     EQU 8
+
+bmRequestType  DS 1
+bRequest       DS 1
+wValueLo       DS 1
+wValueHi       DS 1
+wIndexLo       DS 1
+wIndexHi       DS 1
+wLengthLo      DS 1
+wLengthHi      DS 1
+
+txPtrLo        DS 1
+txPtrHi        DS 1
+txSizeLo       DS 1
+txSizeHi       DS 1
+txPktLen       DS 1
+txTmpCnt       DS 1
+
+usbState       DS 1
+usbStateSetupInvalid EQU usbState.0
+usbStateSetAddress   EQU usbState.1
+usbStateIn0Done      EQU usbState.3
+usbStateZeroPad      EQU usbState.4
+usbStateStringCnt    EQU usbState.5
+usbStateCopyRAM      EQU usbState.6
+usbStateHTDData      EQU usbState.7
+
+usbState2      DS 1
+usbStateAddressValid EQU usbState2.0
+
+xlatVal1       DS 1
+xlatVal2       DS 1
+
 
 .CODE
 ORG 0x0 ; Reset vector
@@ -77,7 +110,7 @@ _start:
 	; Jump into bootloader if "Return" key (S10/R6) is held
 	B0BSET P0M.5 ; Set S10 to output
 	B0BCLR P1M.5 ; Set R6 to input
-	B0BSET P1UR.5 ; Enable pull-up on R6.
+	B0BSET P1UR.5 ; Enable pull-up on R6
 
 	B0BSET S10   ; Set S10 high
 	CALL _delayshort
@@ -112,34 +145,601 @@ _start:
 	; - Clock is 12MHz PLL synced to external oscillator
 	; - IOs set to input
 
-	CALL _test_dispatch
-	JMP $
+	; Setup USB registers
+	CALL _usb_init
+
+_mainloop:
+	; Tickle watchdog
+	MOV A, #0x5a
+	B0MOV WDTR, A
+@@:
+	B0BTS0 FEP0SETUP ; Jump if SETUP packet rx'd
+	JMP _usb_setup
+	B0BTS0 FEP0OUT
+	JMP _usb_ep0_out
+	B0BTS0 FEP0IN
+	JMP _usb_ep0_in
+	B0BTS0 FBUS_RST
+	JMP _usb_reset
+	B0BTS0 FSOF
+	JMP _usb_sof
+	JMP @B
+
+_usb_sof:
+	B0BCLR FSOF
+	JMP _mainloop
+
+_usb_reset:
+	MOV A, #13
+	CALL _uart_tx
+	MOV A, #10
+	CALL _uart_tx
+	MOV A, #'R'
+	CALL _uart_tx
+	CALL _usb_init
+	; Wait until reset is de-asserted
+_usb_reset_wait:
+	B0BTS0 FBUS_RST
+	JMP _usb_reset_wait
+	JMP _mainloop
+
+_usb_init:
+	MOV A, #0
+	B0MOV usbState, A
+	B0MOV usbState2, A
+	B0MOV USTATUS, A
+	MOV A, #0x80
+	B0MOV UDA, A  ; Set address to 0 and enable
+	B0BSET FDP_PU_EN ; Enable D+ pull-up
+	B0BSET FSOF_INT_EN ; Enable SOF interrupt request
+	RET
+
+_usb_ep0_in:
+	B0BCLR FEP0IN ; Early ack of IN irq, we can't get a new one until EP0 NAK state is cleared
+	MOV A, #'i'
+	CALL _uart_tx
+	CALL _usb_write_ep0
+	B0BTS0 usbStateSetAddress
+	JMP _usb_ep0_set_addr
+	JMP _mainloop
+
+_usb_ep0_set_addr:
+	B0BSET wValueLo.7
+	B0MOV A, wValueLo
+	B0MOV UDA, A ; Update address register
+	MOV A, #'A'
+	CALL _uart_tx
+	B0MOV A, wValueLo
+	CALL _uart_hex
+	JMP _mainloop
+
+_usb_ep0_out:
+	MOV A, #'o'
+	CALL _uart_tx
+
+	B0BCLR FEP0OUT ; Ack OUT irq
+	JMP _mainloop
+
+_setup_dispatch_table:
+	DW 0x0005  ; SET_ADDRESS
+	JMP _usb_htd_set_address
+	DW 0x0009  ; SET_CONFIGURATION
+	JMP _usb_htd_set_configuration
+	DW 0x2109  ; HID SET_REPORT
+	JMP _usb_htd_hid_set_report
+	DW 0x210a  ; HID SET_IDLE
+	JMP _usb_htd_hid_set_idle
+	DW 0x210b  ; HID SET_PROTOCOL
+	JMP _usb_setup_default
+	DW 0x8000  ; GET_STATUS
+	JMP _usb_dth_get_status
+	DW 0x8006  ; GET_DESCRIPTOR (device)
+	JMP _usb_dth_get_device_descriptor
+	DW 0x8106  ; GET_DESCRIPTOR (interface)
+	JMP _usb_dth_get_interface_descriptor
+	DW 0xa101  ; HID GET_REPORT
+	JMP _usb_setup_default
+	DW 0xa102  ; HID GET_IDLE
+	JMP _usb_setup_default
+	DW 0xa103  ; HID GET_PROTOCOL
+	JMP _usb_setup_default
+	DW 0xFFFF
+	JMP _usb_setup_default
+
+_usb_setup_default:
+	B0BSET usbStateSetupInvalid
+	MOV A, #'?'
+	CALL _uart_tx
+	B0MOV A, bmRequestType
+	CALL _uart_hex
+	B0MOV A, bRequest
+	CALL _uart_hex
+	RET
+
+_usb_dth_get_device_descriptor:
+	B0MOV A, wValueHi
+	ADD A, #0xfc
+	B0BTS0 FC
+	JMP _usb_get_desc_badidx
+	B0MOV A, wValueHi
+	B0ADD PCL, A
+	JMP _usb_get_desc_badidx
+	JMP _usb_get_desc_device
+	JMP _usb_get_desc_config
+	JMP _usb_get_desc_string
+
+_usb_dth_get_interface_descriptor:
+	B0MOV A, wValueHi
+	SUB A, #0x20
+	ADD A, #0xfc
+	B0BTS0 FC
+	JMP _usb_get_desc_badidx
+	B0MOV A, wValueHi
+	SUB A, #0x20
+	B0ADD PCL, A
+	JMP _usb_get_desc_badidx
+	JMP _usb_get_desc_hid
+	JMP _usb_get_desc_report
+	JMP _usb_get_desc_physical
+
+_usb_get_desc_badidx:
+	MOV A, #'d'
+	CALL _uart_tx
+	B0MOV A, wValueHi
+	CALL _uart_hex
+	B0MOV A, wValueLo
+	CALL _uart_hex
+	B0BSET usbStateSetupInvalid
+	RET
+
+_device_descriptor:
+	DB  0x12       ; bLength
+	DB  1          ; bDescriptorType (DEVICE)
+	DB  0x00, 0x02 ; bcdUSB (2.00)
+	DB  0, 0, 0    ; Class/Subclass/Protocol
+	DB  EP0_BYTES  ; EP0 max packet size
+	DB  0xef, 0x17 ; Vendor 0x17ef (Lenovo)
+	DB  0x47, 0x60 ; Device 0x6047 (Lenovo ThinkPad Compact Keyboard with TrackPoint)
+	DB  0x00, 0x01 ; bcdDevice (1.0)
+	DB  1          ; iManufacturer (String 1)
+	DB  2          ; iProduct (String 2)
+	DB  0          ; iSerial (n/a)
+	DB  1          ; bNumConfigurations (1)
+_device_descriptor_end:
+
+_configuration_descriptor:
+	DB  9          ; bLength
+	DB  2          ; bDescriptorType (CONFIGURATION)
+	DB  0x32, 0x00 ; wTotalLength
+	DB  2          ; bNumInterfaces
+	DB  1          ; bConfigurationValue
+	DB  0          ; iConfiguration (n/a)
+	DB  0xa0       ; bmAttributes (BUS_POWERED, REMOTE_WAKEUP)
+	DB  50         ; bMaxPower (100mA)
+
+	; Keyboard interface
+	DB  9          ; bLength
+	DB  4          ; bDescriptorType (INTERFACE)
+	DB  0          ; bInterfaceNumber
+	DB  0          ; bAlternateSetting
+	DB  1          ; bNumEndpoints
+	DB  3          ; bInterfaceClass (HID)
+	DB  1          ; bInterfaceSubClass (boot interface)
+	DB  1          ; bInterfaceProtocol (keyboard)
+	DB  0          ; iInterface (n/a)
+
+	DB  9          ; bLength
+	DB  0x21       ; bDescriptorType (HID)
+	DB  0x00, 0x01 ; bcdHID (1.00)
+	DB  0          ; bCountryCode (Not Supported)
+	DB  1          ; bNumDescriptors
+	DB  0x22       ; bDescriptorType (Report)
+	DB  63, 0      ; wDescriptorLength (63)
+
+	DB  7          ; bLength
+	DB  5          ; bDescriptorType (ENDPOINT)
+	DB  0x81       ; bEndpointAddress (EP1 IN)
+	DB  0x03       ; bmAttributes (Interrupt, Data)
+	DB  0x3f, 0x00 ; wMaxPacketSize (63 bytes)
+	DB  10         ; bInterval (10ms)
+
+	; Mouse interface
+	DB  9          ; bLength
+	DB  4          ; bDescriptorType (INTERFACE)
+	DB  1          ; bInterfaceNumber
+	DB  0          ; bAlternateSetting
+	DB  1          ; bNumEndpoints
+	DB  3          ; bInterfaceClass (HID)
+	DB  1          ; bInterfaceSubClass (boot interface)
+	DB  2          ; bInterfaceProtocol (mouse)
+	DB  0          ; iInterface (n/a)
+
+	; FIXME: Add Mouse HID descriptor once Keyboard is working.
+
+	DB  7          ; bLength
+	DB  5          ; bDescriptorType (ENDPOINT)
+	DB  0x82       ; bEndpointAddress (EP2 IN)
+	DB  0x03       ; bmAttributes (Interrupt, Data)
+	DB  0x3f, 0x00 ; wMaxPacketSize (63 bytes)
+	DB  10         ; bInterval (10ms)
+_configuration_descriptor_end:
+
+_string_langids:
+	DB 4, 3, 9, 4
+_string_mfg:
+	DB 14, 3
+	DW "Lenovo"
+_string_product:
+	DB 92, 3
+	DW "ThinkPad Compact USB Keyboard with TrackPoint"
+
+_usb_status_ok:
+	DW 0
+
+_kbd_hid_descriptor:
+	DB 9           ; bLength
+	DB 0x21        ; bDescriptorType (HID)
+	DB 0x00, 0x01  ; bcdHID (1.00)
+	DB 0           ; bCountryCode (Not Supported)
+	DB 1           ; bNumDescriptors
+	DB 0x22        ; bDescriptorType (Report)
+	DB 63, 0       ; wDescriptorLength (63)
+_kbd_hid_descriptor_end:
+
+_kbd_report_descriptor:
+	; Boot-compatible descriptor
+	DB 0x05, 1     ; Usage Page (Generic Desktop)
+	DB 0x09, 6     ; Usage (Keyboard)
+	DB 0xa1, 1     ; Collection (Application)
+
+	; Modifier keys
+	DB 0x05, 7     ;   Usage Page (Key Codes)
+	DB 0x19, 224   ;   Usage Minimum (224)
+	DB 0x29, 231   ;   Usage Maximum (231)
+	DB 0x15, 0     ;   Logical Minimum (0)
+	DB 0x25, 1     ;   Logical Minimum (1)
+	DB 0x75, 1     ;   Report Size (1)
+	DB 0x95, 8     ;   Report Count (8)
+	DB 0x81, 2     ;   Input (Data, Variable, Absolute)
+
+	; Reserved byte
+	DB 0x95, 1     ;   Report Count (1)
+	DB 0x75, 8     ;   Report Size (8)
+	DB 0x81, 1     ;   Input (Constant, Absolute)
+
+	; LED byte (5 bits + 3 bits padding)
+	DB 0x95, 5     ;   Report Count (5)
+	DB 0x75, 1     ;   Report Size (1)
+	DB 0x05, 8     ;   Usage Page (LEDs)
+	DB 0x19, 1     ;   Usage Minimum (1)
+	DB 0x29, 5     ;   Usage Maximum (5)
+	DB 0x91, 2     ;   Output (Data, Variable, Absolute)
+	DB 0x95, 1     ;   Report Count (1)
+	DB 0x75, 3     ;   Report Size (3)
+	DB 0x91, 1     ;   Output (Data, Variable, Absolute)
+
+	; 6 key code bytes
+	DB 0x95, 6     ;   Report Count (6)
+	DB 0x75, 8     ;   Report Size (8)
+	DB 0x15, 0     ;   Logical Minimum (0)
+	DB 0x25, 175   ;   Logical Maximum (175)
+	DB 0x05, 7     ;   Usage Page (Key Codes)
+	DB 0x19, 0     ;   Usage Minimum (0)
+	DB 0x29, 175   ;   Usage Maximum (175)
+	DB 0x81, 0     ;   Input (Data, Array)
+
+	DB 0xc0        ; End Collection (Application)
+_kbd_report_descriptor_end:
+
+_clamp_size:
+	B0MOV A, wLengthLo
+	SUB   A, txSizeLo
+	B0MOV A, wLengthHi
+	SBC   A, txSizeHi
+	B0BTS0 FC ; Return if carry set
+	RET
+	B0MOV A, wLengthLo
+	B0MOV txSizeLo, A
+	B0MOV A, wLengthHi
+	B0MOV txSizeHi, A
+	RET
+
+_usb_get_desc_device:
+	MOV A, #'D'
+	CALL _uart_tx
+	MOV A, #_device_descriptor$M
+	B0MOV txPtrHi, A
+	MOV A, #_device_descriptor$L
+	B0MOV txPtrLo, A
+	MOV   A, #0x12
+	B0MOV txSizeLo, A
+_usb_get_desc:
+	CALL _clamp_size
+	CALL _usb_write_ep0
+	RET
+
+_usb_get_desc_config:
+	MOV A, #'C'
+	CALL _uart_tx
+	MOV A, #_configuration_descriptor$M
+	B0MOV txPtrHi, A
+	MOV A, #_configuration_descriptor$L
+	B0MOV txPtrLo, A
+	MOV   A, #0x32
+	B0MOV txSizeLo, A
+	JMP _usb_get_desc
+
+_usb_get_desc_string:
+	B0MOV A, wValueLo
+	ADD A, #0xfd
+	B0BTS0 FC
+	JMP _usb_get_desc_badidx
+	B0MOV A, wValueLo
+	B0ADD PCL, A
+	JMP _usb_get_string_langids
+	JMP _usb_get_string_mfg
+	JMP _usb_get_string_product
+
+_usb_get_string_langids:
+	MOV A, #_string_langids$M
+	B0MOV txPtrHi, A
+	MOV A, #_string_langids$L
+	B0MOV txPtrLo, A
+	MOV   A, #4
+	B0MOV txSizeLo, A
+	JMP _usb_get_desc
+
+_usb_get_string_mfg:
+	MOV A, #_string_mfg$M
+	B0MOV txPtrHi, A
+	MOV A, #_string_mfg$L
+	B0MOV txPtrLo, A
+	MOV   A, #14
+	B0MOV txSizeLo, A
+	JMP _usb_get_desc
+
+_usb_get_string_product:
+	MOV A, #_string_product$M
+	B0MOV txPtrHi, A
+	MOV A, #_string_product$L
+	B0MOV txPtrLo, A
+	MOV   A, #92
+	B0MOV txSizeLo, A
+	JMP _usb_get_desc
+
+_usb_get_desc_hid:
+_usb_get_desc_report:
+_usb_get_desc_physical:
+	MOV A, #_kbd_report_descriptor$M
+	B0MOV txPtrHi, A
+	MOV A, #_kbd_report_descriptor$L
+	B0MOV txPtrLo, A
+	MOV   A, #63
+	B0MOV txSizeLo, A
+	JMP _usb_get_desc
+
+_usb_write_ep0:
+	MOV A, #'W'
+	CALL _uart_tx
+	B0MOV A, txSizeLo
+	CALL _uart_hex
+
+	; Check if this is a 0byte-write and bail out early
+	B0MOV A, txSizeLo
+	OR    A, txSizeHi
+	B0BTS0 FZ ; Jump if zero
+	JMP _write_empty_to_ep0
+
+	; Clamp packet byte count to EP0 size
+	B0MOV A, txSizeHi
+	B0BTS1 FZ ; Jump if not zero
+	JMP _write_to_ep0_big
+	MOV A, txSizeLo
+	B0MOV R, A
+	MOV A, #EP0_BYTES
+	SUB A, txSizeLo
+	B0BTS1 FC ; Skip if carry
+_write_to_ep0_big:
+	B0MOV R, #EP0_BYTES
+
+_write_to_ep0_copy:
+	; Save packet size fo updating UE0R later
+	MOV A, R
+	B0MOV txPktLen, A
+	B0MOV txTmpCnt, A
+
+	; Copy data into EP0 xmit buffer
+	MOV A, #0
+	B0MOV UDP0, A
+_write_to_ep0_copy_loop:
+	B0MOV A, txPtrHi
+	B0MOV Y, A
+	B0MOV A, txPtrLo
+	B0MOV Z, A
+	MOVC
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, R
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	INCMS txPtrLo
+	JMP @F
+	INCMS txPtrHi
+@@:
+	DECMS txTmpCnt
+	JMP @F
+	JMP _write_to_ep0_update_len
+@@:
+	DECMS txTmpCnt
+	JMP _write_to_ep0_copy_loop
+
+_write_to_ep0_update_len:
+	B0MOV A, txPktLen
+	XCH A, txSizeLo
+	SUB txSizeLo, A  ; M = A - M
+	MOV A, #0
+	XCH A, txSizeHi
+	SBC txSizeHi, A  ; M = A - M - /C
+
+	B0MOV A, txPktLen
+	OR A, #0x20  ; Set to ACK for
+	B0MOV UE0R, A
+
+	B0MOV A, txPktLen
+	CALL _uart_hex
+
+	B0MOV A, txPktLen
+	B0BTS0 FZ ; Skip if not zero
+_write_done:
+	B0BSET usbStateIn0Done
+_write_not_yet_done:
+	RET
+
+_write_empty_to_ep0:
+	B0MOV txPktLen, A
+	B0BTS1 usbStateIn0Done ; Jump if unset
+	JMP _write_to_ep0_update_len
+	MOV A, #'s'
+	CALL _uart_tx
+	JMP _write_to_ep0_update_len
+	;B0BSET FUE0M1 ; Stall EP0 (FUE0M0 doesn't matter)
+	;RET
+
+
+_usb_dth_get_status:
+	MOV A, #_usb_status_ok$M
+	B0MOV txPtrHi, A
+	MOV A, #_usb_status_ok$L
+	B0MOV txPtrLo, A
+	MOV   A, #2
+	B0MOV txSizeLo, A
+	JMP _usb_write_ep0
+
+_usb_htd_set_configuration:
+	; Only one configuration, nothing to do.
+	MOV A, #0x20  ; ACK with no TX
+	B0MOV UE0R, A
+	RET
+
+_usb_htd_set_address:
+	MOV A, #'a'
+	CALL _uart_tx
+	B0BSET usbStateSetAddress
+	MOV A, #0x20  ; ACK with no TX
+	B0MOV UE0R, A
+	RET
+
+_usb_htd_hid_set_idle:
+	MOV A, #'I'
+	CALL _uart_tx
+	MOV A, #0x20  ; ACK with no TX
+	B0MOV UE0R, A
+	RET
+
+_usb_htd_hid_set_report:
+	MOV A, #'r'
+	CALL _uart_tx
+	MOV A, #0x20  ; ACK with no TX
+	B0MOV UE0R, A
+	RET
+
+_usb_setup:
+	MOV A, #0      ; Unstall & NAK EP0 IN/OUT
+	B0MOV UE0R, A
+	B0MOV txSizeLo, A
+	B0MOV txSizeHi, A
+	B0MOV usbState, A
+
+	MOV A, #' '
+	CALL _uart_tx
+	MOV A, #'S'
+	CALL _uart_tx
+
+	; Copy setup packet
+	MOV A, #8
+	B0MOV R, A
+	B0MOV Y, #bmRequestType$M
+	B0MOV Z, #bmRequestType$L
+	MOV A, #0
+	B0MOV UDP0, A
+@@:
+	B0MOV A, UDR0_R
+	B0MOV @YZ, A
+	INCMS UDP0
+	INCMS Z
+	DECMS R
+	JMP @B
+	NOP
+
+	; Log bRequest
+	MOV A, #1
+	B0MOV UDP0, A
+	B0MOV A, UDR0_R
+	CALL _uart_hex
+
+	B0BTS0 bmRequestType.7  ; Jump if bit7 set
+	JMP _usb_setup_dth
+
+	; host is writing to device, check if there will be OUT with data.
+	MOV A, wLengthLo
+	OR  A, wLengthHi
+	B0BTS0 FZ  ; Jump if length is 0
+	JMP _usb_setup_htd_no_data
+
+	B0BSET FUE0M0   ; Change EP0 to ACK, wait for data
+	B0BSET usbStateHTDData
+	JMP _usb_setup_exit
+
+_usb_setup_htd_got_data:
+_usb_setup_htd_no_data:
+_usb_setup_dth:
+	B0MOV  Y, #_setup_dispatch_table$M
+	B0MOV  Z, #_setup_dispatch_table$L
+
+_usb_setup_do_dispatch:
+	B0MOV  A, bmRequestType
+	B0MOV  R, A
+	B0MOV  A, bRequest
+	CALL _dispatch
+
+	B0BTS1 usbStateSetupInvalid
+	JMP _setup_done_valid
+
+	B0BSET FUE0M1   ; Stall EP0
+
+_setup_done_valid:
+	B0BTS1 bmRequestType.7  ; Skip if bit7 set
+	B0BSET FUE0M0   ; Unnak EP0 IN for final ACK
+
+_usb_setup_exit:
+	B0BCLR FEP0SETUP ; Late ack of SETUP irq
+	JMP _mainloop
+
 
 _dispatch:
-	B0MOV  dispatchArg, A
-	JMP _dispatch_next
-_dispatch_loop:
-	B0MOV  A, R
-	CMPRS  A, #0      ; Jump if last entry
-	JMP _dispatch_jump_indirect
+	B0MOV  xlatVal1, A
+	MOV A, R
+	B0MOV  xlatVal2, A
+	JMP _xlat_next
+_xlat_loop:
+	AND    A, R
+	CMPRS  A, #0xff   ; Jump if last entry
+	JMP @F
+	JMP _xlat_do_indirect_jump
+@@:
 	CALL _inc_yz      ; skip jump target
 	CALL _inc_yz
-_dispatch_next:
+_xlat_next:
 	MOVC   ; Read ROM word into R (hi) and A (lo)
-	CMPRS  A, dispatchArg ; Jump if not yet equal
-	JMP _dispatch_loop
-_dispatch_jump_indirect:
+	CMPRS  A, xlatVal1 ; Jump if A != xlatVal1
+	JMP _xlat_loop
+	XCH    A, R
+	CMPRS  A, xlatVal2 ; Jump if R != xlatVal2
+	JMP _xlat_loop
+_xlat_do_indirect_jump:
 	CALL _inc_yz
 	CALL _jmp_yz
 	RET ; never reached, kept for disassembler
-
-_inc_yz:
-	INCMS Z
-	JMP @F
-	INCMS Y
-	RET
-@@:
-	RET
 
 _jmp_yz:  ; FIXME: Interrupts must be disabled
 	; DS is underspecified, but experimentally it
@@ -214,75 +814,6 @@ _set_stack_7:
 	B0MOV STK7L, A
 	RET
 
-_test_dispatch1:
-	DW 0x0001
-	JMP _test_dispatch2
-	DW 0xFFFF
-	JMP _test_dispatch_err
-
-_test_dispatch3:
-	DW 0x0001
-	JMP _test_dispatch4
-	DW 0xFFFF
-	JMP _test_dispatch_err
-
-_test_dispatch5:
-	DW 0x0001
-	JMP _test_dispatch6
-	DW 0xFFFF
-	JMP _test_dispatch_err
-
-_test_dispatch_err:
-	MOV    A, #'E'
-	CALL _uart_tx
-	JMP $
-
-_test_dispatch:
-	; Should print "D246cba" (tested to do so on HW)
-	MOV A, #'D'
-	CALL _uart_tx
-	MOV    A, #_test_dispatch1$M
-	B0MOV  Y, A
-	MOV    A, #_test_dispatch1$L
-	B0MOV  Z, A
-	MOV    A, #1
-	CALL _dispatch
-	MOV A, #'a'
-	CALL _uart_tx
-	RET
-
-_test_dispatch2:
-	MOV A, #'2'
-	CALL _uart_tx
-	MOV    A, #_test_dispatch3$M
-	B0MOV  Y, A
-	MOV    A, #_test_dispatch3$L
-	B0MOV  Z, A
-	MOV    A, #1
-	CALL _dispatch
-	MOV A, #'b'
-	CALL _uart_tx
-	RET
-
-_test_dispatch4:
-	MOV A, #'4'
-	CALL _uart_tx
-	MOV    A, #_test_dispatch5$M
-	B0MOV  Y, A
-	MOV    A, #_test_dispatch5$L
-	B0MOV  Z, A
-	MOV    A, #1
-	CALL _dispatch
-	MOV A, #'c'
-	CALL _uart_tx
-	RET
-
-_test_dispatch6:
-	MOV A, #'6'
-	CALL _uart_tx
-	RET
-
-
 _return_held:
 	MOV A, #'E'
 	CALL _uart_tx
@@ -297,6 +828,14 @@ _uart_shorted:
 	MOV A, #'s'
 	CALL _uart_tx
 	JMP _flasher
+
+_inc_yz:
+	INCMS Z
+	JMP @F
+	INCMS Y
+	RET
+@@:
+	RET
 
 _uart_hex:
 	MOV R, A
@@ -328,70 +867,6 @@ _delayshort:
 	DECMS R
 	JMP @B
 	RET
-
-_device_descriptor:
-	DB  0x12a      ; bLength
-	DB  1          ; bDescriptorType (DEVICE)
-	DB  0x00, 0x02 ; bcdUSB (2.00)
-	DB  0, 0, 0    ; Class/Subclass/Protocol
-	DB  EP0_BYTES  ; EP0 max packet size
-	DB  0xef, 0x17 ; Vendor 0x17ef (Lenovo)
-	DB  0x47, 0x60 ; Device 0x6047 (Lenovo ThinkPad Compact Keyboard with TrackPoint)
-	DB  0x00, 0x01 ; bcdDevice (1.0)
-	DB  1          ; iManufacturer (String 1)
-	DB  2          ; iProduct (String 2)
-	DB  0          ; iSerial (n/a)
-_device_descriptor_end:
-
-_configuration_descriptor:
-	DB  9          ; bLength
-	DB  2          ; bDescriptorType (CONFIGURATION)
-	DB  0x3b, 0x00 ; wTotalLength
-	DB  2          ; bNumInterfaces
-	DB  1          ; bConfigurationValue
-	DB  0          ; iConfiguration (n/a)
-	DB  0xa0       ; bmAttributes (BUS_POWERED, REMOTE_WAKEUP)
-	DB  50         ; bMaxPower (100mA)
-
-	; Keyboard interface
-	DB  9          ; bLength
-	DB  4          ; bDescriptorType (INTERFACE)
-	DB  0          ; bInterfaceNumber
-	DB  0          ; bAlternateSetting
-	DB  1          ; bNumEndpoints
-	DB  3          ; bInterfaceClass (HID)
-	DB  1          ; bInterfaceSubClass (boot interface)
-	DB  1          ; bInterfaceProtocol (keyboard)
-	DB  0          ; iInterface (n/a)
-	DB  7          ; bLength
-	DB  5          ; bDescriptorType (ENDPOINT)
-	DB  0x81       ; bEndpointAddress (EP1 IN)
-	DB  0x03       ; bmAttributes (Interrupt, Data)
-	DB  0x08, 0x00 ; wMaxPacketSize (8 bytes)
-	DB  1          ; bInterval (1ms)
-
-	; Mouse interface
-	DB  9          ; bLength
-	DB  4          ; bDescriptorType (INTERFACE)
-	DB  1          ; bInterfaceNumber
-	DB  0          ; bAlternateSetting
-	DB  1          ; bNumEndpoints
-	DB  3          ; bInterfaceClass (HID)
-	DB  1          ; bInterfaceSubClass (boot interface)
-	DB  2          ; bInterfaceProtocol (mouse)
-	DB  0          ; iInterface (n/a)
-	DB  7          ; bLength
-	DB  5          ; bDescriptorType (ENDPOINT)
-	DB  0x82       ; bEndpointAddress (EP2 IN)
-	DB  0x03       ; bmAttributes (Interrupt, Data)
-	DB  0x08, 0x00 ; wMaxPacketSize (8 bytes)
-	DB  1          ; bInterval (1ms)
-_configuration_descriptor_end:
-
-_str_mfg:
-	DB "ranma", 0
-_str_product:
-	DB "ThinkPad Compact USB Keyboard with TrackPoint (Custom Firmware)", 0
 
 ORG 0x27ff
 	DW  0xaaaa          ; canary
