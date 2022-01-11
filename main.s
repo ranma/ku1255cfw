@@ -17,8 +17,54 @@ _canary_check EQU 0x2880
 _flasher      EQU 0x2890
 UTX           EQU P0.6    ; S15
 URX           EQU P0.5    ; S10
+S0            EQU P2.2
+S0M           EQU P2M.2
+S1            EQU P2.0
+S1M           EQU P2M.0
+S2            EQU P4.0
+S2M           EQU P4M.0
+S3            EQU P4.5
+S3M           EQU P4M.5
+S4            EQU P4.1
+S4M           EQU P4M.1
+S5            EQU P2.1
+S5M           EQU P2M.1
+S6            EQU P4.4
+S6M           EQU P4M.4
+S7            EQU P4.2
+S7M           EQU P4M.2
+S8            EQU P4.3
+S8M           EQU P4M.3
+S9            EQU P2.3
+S9M           EQU P2M.3
 S10           EQU P0.5
+S10M          EQU P0M.5
+S11           EQU P0.4
+S11M          EQU P0M.4
+S12           EQU P4.6
+S12M          EQU P4M.6
+S13           EQU P4.7
+S13M          EQU P4M.7
+S14           EQU P0.3
+S14M          EQU P0M.3
+S15           EQU P0.6
+S15M          EQU P0M.6
+R0            EQU P1.0
+R0M           EQU P1M.0
+R1            EQU P1.7
+R1M           EQU P1M.7
+R2            EQU P1.2
+R2M           EQU P1M.2
+R3            EQU P1.1
+R3M           EQU P1M.1
+R4            EQU P1.4
+R4M           EQU P1M.4
+R5            EQU P1.3
+R5M           EQU P1M.3
 R6            EQU P1.5
+R6M           EQU P1M.5
+R7            EQU P1.6
+R7M           EQU P1M.6
 
 EP0_BYTES     EQU 8
 EP1_BYTES     EQU 8
@@ -51,9 +97,15 @@ usbStateHTDData      EQU usbState.7
 
 usbState2      DS 1
 usbStateAddressValid EQU usbState2.0
+usbStateEnterFlasher EQU usbState2.1
 
 xlatVal1       DS 1
 xlatVal2       DS 1
+
+kbdRow         DS 1
+kbdRowsLow     DS 1
+kbdSense1      DS 1
+kbdSense2      DS 1
 
 
 .CODE
@@ -145,6 +197,8 @@ _start:
 	; - Clock is 12MHz PLL synced to external oscillator
 	; - IOs set to input
 
+	; Setup GPIO
+	CALL _gpio_init
 	; Setup USB registers
 	CALL _usb_init
 
@@ -167,6 +221,34 @@ _mainloop:
 
 _usb_sof:
 	B0BCLR FSOF
+
+	; Check for cross-talk from too many depressed keys
+	CALL _kbd_count_rows_low
+	; Read the columns
+	CALL _kbd_sense
+	; Release the scanned row
+	CALL _kbd_set_row_input
+	; Increment row
+	INCMS kbdRow
+	MOV A, #0x07
+	AND kbdRow, A
+	; Lower the next row
+	CALL _kbd_set_row_output
+
+	B0MOV A, kbdSense1
+	OR    A, kbdSense2
+	B0BTS0 FZ  ; Jump if kbdSense is zero
+	JMP _mainloop
+
+	MOV A, #'K'
+	CALL _uart_tx
+	B0MOV A, kbdRow
+	CALL _uart_hex
+	B0MOV A, kbdSense1
+	CALL _uart_hex
+	B0MOV A, kbdSense2
+	CALL _uart_hex
+
 	JMP _mainloop
 
 _usb_reset:
@@ -183,6 +265,37 @@ _usb_reset_wait:
 	JMP _usb_reset_wait
 	JMP _mainloop
 
+_gpio_init:
+	; Enable all pull-ups
+	MOV A, #0xff
+	B0MOV P0UR, A
+	B0MOV P1UR, A
+	B0MOV P2UR, A
+	B0MOV P4UR, A
+	B0MOV P5UR, A
+	; Switch all to input
+	MOV A, #0x00
+	B0MOV P0M, A
+	B0MOV P1M, A
+	B0MOV P2M, A
+	B0MOV P4M, A
+	B0MOV P5M, A
+	; Set port output data to 0
+	B0MOV P0, A
+	B0MOV P1, A
+	B0MOV P2, A
+	B0MOV P4, A
+	B0MOV P5, A
+	; Reset kbd scan state
+	B0MOV kbdRow, A
+	; Re-light LED
+	B0BCLR P5.3   ; Set to low level to light up
+	B0BSET P5M.3  ; Set to output
+	;; Set UTX/URX to open-drain
+	;MOV A, #0x0c
+	;B0MOV P1OC, A
+	RET
+
 _usb_init:
 	MOV A, #0
 	B0MOV usbState, A
@@ -190,8 +303,116 @@ _usb_init:
 	B0MOV USTATUS, A
 	MOV A, #0x80
 	B0MOV UDA, A  ; Set address to 0 and enable
+	B0MOV UE1R, A ; Enable EP1, set to NAK
+	B0MOV UE2R, A ; Enable EP2, set to NAK
 	B0BSET FDP_PU_EN ; Enable D+ pull-up
 	B0BSET FSOF_INT_EN ; Enable SOF interrupt request
+	RET
+
+_kbd_sense:
+	MOV A, #0
+	B0MOV kbdSense1, A
+	B0MOV kbdSense2, A
+	B0BTS1 S0
+	B0BSET kbdSense1.0
+	B0BTS1 S1
+	B0BSET kbdSense1.1
+	B0BTS1 S2
+	B0BSET kbdSense1.2
+	B0BTS1 S3
+	B0BSET kbdSense1.3
+	B0BTS1 S4
+	B0BSET kbdSense1.4
+	B0BTS1 S5
+	B0BSET kbdSense1.5
+	B0BTS1 S6
+	B0BSET kbdSense1.6
+	B0BTS1 S7
+	B0BSET kbdSense1.7
+	B0BTS1 S8
+	B0BSET kbdSense2.0
+	B0BTS1 S9
+	B0BSET kbdSense2.1
+	B0BTS1 S10
+	B0BSET kbdSense2.2
+	B0BTS1 S11
+	B0BSET kbdSense2.3
+	B0BTS1 S12
+	B0BSET kbdSense2.4
+	B0BTS1 S13
+	B0BSET kbdSense2.5
+	B0BTS1 S14
+	B0BSET kbdSense2.6
+	B0BTS1 S15
+	B0BSET kbdSense2.7
+	RET
+
+_kbd_set_row_output:
+	B0MOV A, kbdRow
+	AND A, #0x7
+	MOV R, A
+	ADD A, R
+	B0ADD PCL, A
+	B0BSET R0M
+	RET
+	B0BSET R1M
+	RET
+	B0BSET R2M
+	RET
+	B0BSET R3M
+	RET
+	B0BSET R4M
+	RET
+	B0BSET R5M
+	RET
+	B0BSET R6M
+	RET
+	B0BSET R7M
+	RET
+
+_kbd_set_row_input:
+	B0MOV A, kbdRow
+	AND A, #0x7
+	MOV R, A
+	ADD A, R
+	B0ADD PCL, A
+	B0BCLR R0M
+	RET
+	B0BCLR R1M
+	RET
+	B0BCLR R2M
+	RET
+	B0BCLR R3M
+	RET
+	B0BCLR R4M
+	RET
+	B0BCLR R5M
+	RET
+	B0BCLR R6M
+	RET
+	B0BCLR R7M
+	RET
+
+_kbd_count_rows_low:
+	MOV A, #0
+	B0MOV kbdRowsLow, A
+	B0BTS1 R0
+	INCMS kbdRowsLow
+	B0BTS1 R1
+	INCMS kbdRowsLow
+	B0BTS1 R2
+	INCMS kbdRowsLow
+	B0BTS1 R3
+	INCMS kbdRowsLow
+	B0BTS1 R4
+	INCMS kbdRowsLow
+	B0BTS1 R5
+	INCMS kbdRowsLow
+	B0BTS1 R6
+	INCMS kbdRowsLow
+	B0BTS1 R7
+	INCMS kbdRowsLow
+	NOP
 	RET
 
 _usb_ep0_in:
@@ -214,10 +435,17 @@ _usb_ep0_set_addr:
 	JMP _mainloop
 
 _usb_ep0_out:
+	B0BCLR FEP0OUT ; Ack OUT irq
+
 	MOV A, #'o'
 	CALL _uart_tx
 
-	B0BCLR FEP0OUT ; Ack OUT irq
+	B0MOV A, EP0OUT_CNT
+	B0BTS1 FZ ; Call if non-zero
+	CALL _uart_hex
+
+	B0BTS0 usbStateHTDData
+	JMP _usb_setup_htd_got_data
 	JMP _mainloop
 
 _setup_dispatch_table:
@@ -238,7 +466,7 @@ _setup_dispatch_table:
 	DW 0x8106  ; GET_DESCRIPTOR (interface)
 	JMP _usb_dth_get_interface_descriptor
 	DW 0xa101  ; HID GET_REPORT
-	JMP _usb_setup_default
+	JMP _usb_dth_hid_get_report
 	DW 0xa102  ; HID GET_IDLE
 	JMP _usb_setup_default
 	DW 0xa103  ; HID GET_PROTOCOL
@@ -521,8 +749,6 @@ _usb_get_desc_physical:
 _usb_write_ep0:
 	MOV A, #'W'
 	CALL _uart_tx
-	B0MOV A, txSizeLo
-	CALL _uart_hex
 
 	; Check if this is a 0byte-write and bail out early
 	B0MOV A, txSizeLo
@@ -639,7 +865,56 @@ _usb_htd_hid_set_idle:
 _usb_htd_hid_set_report:
 	MOV A, #'r'
 	CALL _uart_tx
+	B0MOV A, EP0OUT_CNT
+	CALL _uart_hex
+
+	; First, set the "enter flasher bit"
+	B0BSET usbStateEnterFlasher
+
+	; Check each bit against the expected pattern and clear the flag if mismatch
+	B0MOV A, EP0OUT_CNT
+	CMPRS A, #0x08
+	B0BCLR usbStateEnterFlasher
+
+	MOV A, #0
+	B0MOV UDP0, A
+	B0MOV A, UDR0_R
+	CMPRS A, #0xaa
+	B0BCLR usbStateEnterFlasher
+	CALL _uart_hex
+
+	INCMS UDP0
+	B0MOV A, UDR0_R
+	CMPRS A, #0x55
+	B0BCLR usbStateEnterFlasher
+	CALL _uart_hex
+
+	INCMS UDP0
+	B0MOV A, UDR0_R
+	CMPRS A, #0xa5
+	B0BCLR usbStateEnterFlasher
+	CALL _uart_hex
+
+	INCMS UDP0
+	B0MOV A, UDR0_R
+	CMPRS A, #0x5a
+	B0BCLR usbStateEnterFlasher
+	CALL _uart_hex
+
 	MOV A, #0x20  ; ACK with no TX
+	B0MOV UE0R, A
+
+	; Enter flasher if flag is still set
+	B0BTS0 usbStateEnterFlasher
+	JMP _flasher
+	RET
+
+_usb_dth_hid_get_report:
+	MOV A, #'g'
+	CALL _uart_tx
+	; Send last 8 bytes in buffer
+	; FIXME: Handle this properly
+	MOV A, #0x28
 	B0MOV UE0R, A
 	RET
 
