@@ -68,7 +68,7 @@ Keyboard matrix (annotated ku1255_sim.py output):
           P1.0           P1.1           P1.2           P1.3           P1.4           P1.5           P1.6           P1.7
             R0             R3             R2             R5             R4             R6             R7             R1
 
-            UP         (none)         (none)            END         (none)          PAUSE           LEFT    KP_MEMSTORE   P0.3/S14
+            UP         (none)         (none)            END             FN          PAUSE           LEFT    KP_MEMSTORE   P0.3/S14
         (none)           HOME         (none)            F11         (none)         (none)           DOWN         (none)   P0.4/S11
             F5             F9 INTERNATIONAL3            F10      BACKSLASH         RETURN          SPACE      BACKSPACE   P0.5/S10
         (none)         DELETE         (none)         INSERT    PRINTSCREEN         PAGEUP       PAGEDOWN         (none)   P0.6/S15
@@ -84,3 +84,24 @@ INTERNATIONAL4             F8              O              9              L      
         (none)          LCTRL         (none)         (none)         (none)          RCTRL         (none)         (none)   P4.5/S3
           LALT KP_MEMSUBTRACT         (none)         (none)         (none)         (none)           RALT         (none)   P4.6/S12
         (none)         (none)    KP_MEMCLEAR            F12         (none)         (none)          RIGHT           LGUI   P4.7/S13
+
+Matrix (named order):
+          P1.0           P1.7           P1.2           P1.1           P1.4           P1.3           P1.5           P1.6
+            R0             R1             R2             R3             R4             R5             R6             R7
+
+        ESCAPE            TAB              Q          GRAVE              A              1              Z INTERNATIONAL5   P2.2/S0
+            F4             F3              E             F2              D              3              C         (none)   P2.0/S1
+NONUSBACKSLASH       CAPSLOCK              W             F1              S              2              X         (none)   P4.0/S2
+        (none)         (none)         (none)          LCTRL         (none)         (none)          RCTRL         (none)   P4.5/S3
+             G              T              R              5              F              4              V              B   P4.1/S4
+             H              Y              U              6              J              7              M              N   P2.1/S5
+            F6   RIGHTBRACKET              I         EQUALS              K              8          COMMA INTERNATIONAL1   P4.4/S6
+INTERNATIONAL4             F7              O             F8              L              9         PERIOD INTERNATIONAL2   P4.2/S7
+    APOSTROPHE    LEFTBRACKET              P          MINUS      SEMICOLON              0      NONUSHASH          SLASH   P4.3/S8
+        (none)         LSHIFT         (none)         (none)         (none)         (none)         RSHIFT         (none)   P2.3/S9
+            F5      BACKSPACE INTERNATIONAL3             F9      BACKSLASH            F10         RETURN          SPACE   P0.5/S10
+        (none)         (none)         (none)           HOME         (none)            F11         (none)           DOWN   P0.4/S11
+          LALT         (none)         (none) KP_MEMSUBTRACT         (none)         (none)         (none)           RALT   P4.6/S12
+        (none)           LGUI    KP_MEMCLEAR         (none)         (none)            F12         (none)          RIGHT   P4.7/S13
+            UP    KP_MEMSTORE         (none)         (none)             FN            END          PAUSE           LEFT   P0.3/S14
+        (none)         (none)         (none)         DELETE    PRINTSCREEN         INSERT         PAGEUP       PAGEDOWN   P0.6/S15
