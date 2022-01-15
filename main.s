@@ -104,8 +104,175 @@ xlatVal2       DS 1
 
 kbdRow         DS 1
 kbdRowsLow     DS 1
-kbdSense1      DS 1
-kbdSense2      DS 1
+
+bootKeyIdx     DS 1
+bootKeyVal     DS 1
+keyStateIdx    DS 1
+keyStateVal    DS 1
+
+modifierState1 DS 1 ; 224-231
+modifierState2 DS 1 ; FN key
+bootKeys0      DS 1
+bootKeys1      DS 1
+bootKeys2      DS 1
+bootKeys3      DS 1
+bootKeys4      DS 1
+bootKeys5      DS 1
+
+keyState0      DS 1 ; 0-7
+keyState1      DS 1 ; 8-15
+keyState2      DS 1 ; 16-
+keyState3      DS 1 ; 24-
+keyState4      DS 1 ; 32-
+keyState5      DS 1 ; 40-
+keyState6      DS 1 ; 48-
+keyState7      DS 1 ; 56-
+keyState8      DS 1 ; 64-
+keyState9      DS 1 ; 72-
+keyState10     DS 1 ; 80-
+keyState11     DS 1 ; 88-
+keyState12     DS 1 ; 96-
+keyState13     DS 1 ; 104-
+keyState14     DS 1 ; 112-
+keyState15     DS 1 ; 120-
+keyState16     DS 1 ; 128-
+keyState17     DS 1 ; 136-
+
+ramClearEnd    DS 1
+
+keyNONE            EQU keyState0.0
+keyErrorRollOver   EQU keyState0.1  ; Too many keys pressed or scan error
+keyA               EQU keyState0.4
+keyB               EQU keyState0.5
+keyC               EQU keyState0.6
+keyD               EQU keyState0.7
+keyE               EQU keyState1.0
+keyF               EQU keyState1.1
+keyG               EQU keyState1.2
+keyH               EQU keyState1.3
+keyI               EQU keyState1.4
+keyJ               EQU keyState1.5
+keyK               EQU keyState1.6
+keyL               EQU keyState1.7
+keyM               EQU keyState2.0
+keyN               EQU keyState2.1
+keyO               EQU keyState2.2
+keyP               EQU keyState2.3
+keyQ               EQU keyState2.4
+keyR               EQU keyState2.5
+keyS               EQU keyState2.6
+keyT               EQU keyState2.7
+keyU               EQU keyState3.0
+keyV               EQU keyState3.1
+keyW               EQU keyState3.2
+keyX               EQU keyState3.3
+keyY               EQU keyState3.4
+keyZ               EQU keyState3.5
+key1               EQU keyState3.6
+key2               EQU keyState3.7
+key3               EQU keyState4.0
+key4               EQU keyState4.1
+key5               EQU keyState4.2
+key6               EQU keyState4.3
+key7               EQU keyState4.4
+key8               EQU keyState4.5
+key9               EQU keyState4.6
+key0               EQU keyState4.7
+keyRETURN          EQU keyState5.0
+keyESC             EQU keyState5.1
+keyBACKSPACE       EQU keyState5.2
+keyTAB             EQU keyState5.3
+keySPACE           EQU keyState5.4
+keyMINUS           EQU keyState5.5
+keyEQUALS          EQU keyState5.6
+keyLEFTBRACKET     EQU keyState5.7
+keyRIGHTBRACKET    EQU keyState6.0
+keyBACKSLASH       EQU keyState6.1
+keyNONUSHASH       EQU keyState6.2
+keySEMICOLON       EQU keyState6.3
+keyAPOSTROPHE      EQU keyState6.4
+keyGRAVE           EQU keyState6.5
+keyCOMMA           EQU keyState6.6
+keyPERIOD          EQU keyState6.7
+keySLASH           EQU keyState7.0
+keyCAPSLOCK        EQU keyState7.1
+keyF1              EQU keyState7.2
+keyF2              EQU keyState7.3
+keyF3              EQU keyState7.4
+keyF4              EQU keyState7.5
+keyF5              EQU keyState7.6
+keyF6              EQU keyState7.7
+keyF7              EQU keyState8.0
+keyF8              EQU keyState8.1
+keyF9              EQU keyState8.2
+keyF10             EQU keyState8.3
+keyF11             EQU keyState8.4
+keyF12             EQU keyState8.5
+keyPRINTSCREEN     EQU keyState8.6
+keySCROLLLOCK      EQU keyState8.7
+keyPAUSE           EQU keyState9.0
+keyINSERT          EQU keyState9.1
+keyHOME            EQU keyState9.2
+keyPAGEUP          EQU keyState9.3
+keyDELETE          EQU keyState9.4
+keyEND             EQU keyState9.5
+keyPAGEDOWN        EQU keyState9.6
+keyRIGHT           EQU keyState9.7
+keyLEFT            EQU keyState10.0
+keyDOWN            EQU keyState10.1
+keyUP              EQU keyState10.2
+keyNUMLOCK         EQU keyState10.3
+keyKPDIV           EQU keyState10.4
+keyKPMUL           EQU keyState10.5
+keyKPMINUS         EQU keyState10.6
+keyKPPLUS          EQU keyState10.7
+keyKPENTER         EQU keyState11.0
+keyKP1             EQU keyState11.1
+keyKP2             EQU keyState11.2
+keyKP3             EQU keyState11.3
+keyKP4             EQU keyState11.4
+keyKP5             EQU keyState11.5
+keyKP6             EQU keyState11.6
+keyKP7             EQU keyState11.7
+keyKP8             EQU keyState12.0
+keyKP9             EQU keyState12.1
+keyKP0             EQU keyState12.2
+keyKPCOLON         EQU keyState12.3
+keyNONUSBACKSLASH  EQU keyState12.4
+keyAPPLICATION     EQU keyState12.5
+keyPOWER           EQU keyState12.6
+keyKPEQUALS        EQU keyState12.7  ; 103
+
+keyINTERNATIONAL1  EQU keyState16.7  ; 135
+keyINTERNATIONAL2  EQU keyState17.0
+keyINTERNATIONAL3  EQU keyState17.1
+keyINTERNATIONAL4  EQU keyState17.2
+keyINTERNATIONAL5  EQU keyState17.3
+keyINTERNATIONAL6  EQU keyState17.4
+keyINTERNATIONAL7  EQU keyState17.5
+keyINTERNATIONAL8  EQU keyState17.6
+keyINTERNATIONAL9  EQU keyState17.7  ; 143
+
+; keyKPMEMSTORE      EQU 208
+; keyKPMEMRECALL     EQU 209
+; keyKPMEMCLEAR      EQU 210
+; keyKPMEMADD        EQU 211
+; keyKPMEMSUBTRACT   EQU 212
+; keyKPMEMMULTIPLY   EQU 213
+; keyKPMEMDIVIDE     EQU 214
+
+keyLCTRL           EQU modifierState1.0  ; 224
+keyLSHIFT          EQU modifierState1.1
+keyLALT            EQU modifierState1.2
+keyLGUI            EQU modifierState1.3
+keyRCTRL           EQU modifierState1.4
+keyRSHIFT          EQU modifierState1.5
+keyRALT            EQU modifierState1.6
+keyRGUI            EQU modifierState1.7  ; 231
+
+keyFN              EQU modifierState2.0
+stateFnLock        EQU modifierState2.1
+stateFnCtrlSwap    EQU modifierState2.2
 
 
 .CODE
@@ -197,6 +364,27 @@ _start:
 	; - Clock is 12MHz PLL synced to external oscillator
 	; - IOs set to input
 
+	; Clear RAM
+	B0MOV Y, #0
+	B0MOV Z, #ramClearEnd$L
+	MOV   A, #0
+@@:
+	B0MOV @YZ, A
+	DECMS Z
+	JMP @B
+	B0MOV @YZ, A
+
+	B0BSET keyA
+	B0BSET keyINTERNATIONAL2
+	CALL _kbd_update_boot_keys
+
+	B0MOV A, bootKeys0
+	CALL _uart_hex
+	B0MOV A, bootKeys1
+	CALL _uart_hex
+	B0MOV A, bootKeys2
+	CALL _uart_hex
+
 	; Setup GPIO
 	CALL _gpio_init
 	; Setup USB registers
@@ -234,22 +422,71 @@ _usb_sof:
 	AND kbdRow, A
 	; Lower the next row
 	CALL _kbd_set_row_output
+	; Update boot keys
+	CALL _kbd_update_boot_keys
 
-	B0MOV A, kbdSense1
-	OR    A, kbdSense2
-	B0BTS0 FZ  ; Jump if kbdSense is zero
+	; Update EP1 buffer
+	CALL _kbd_write_ep1
+
+	B0MOV A, bootKeys0
+	OR    A, bootKeys1
+	B0BTS0 FZ  ; Jump if kbdState is zero
 	JMP _mainloop
 
+	MOV A, #' '
+	CALL _uart_tx
 	MOV A, #'K'
 	CALL _uart_tx
 	B0MOV A, kbdRow
 	CALL _uart_hex
-	B0MOV A, kbdSense1
+	B0MOV A, bootKeys0
 	CALL _uart_hex
-	B0MOV A, kbdSense2
+	B0MOV A, bootKeys1
 	CALL _uart_hex
 
 	JMP _mainloop
+
+_kbd_write_ep1:
+	B0BTS0 FUE1M0 ; Skip if zero
+	RET
+	; FUE1M0 is zero (NAK)
+	MOV A, #8   ; EP1 begins at offset 8
+	B0MOV UDP0, A
+
+	B0MOV A, modifierState1
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	MOV A, #0   ; reserved byte
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, bootKeys0
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, bootKeys1
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, bootKeys2
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, bootKeys3
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, bootKeys4
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, bootKeys5
+	B0MOV UDR0_W, A
+	INCMS UDP0
+
+	MOV A, #8  ; EP1 count is 8
+	B0MOV UE1R_C, A
+
+	; Set EP1 to ACK
+	B0BSET FUE1M0
+
+	MOV A, #','
+	CALL _uart_tx
+	RET
 
 _usb_reset:
 	MOV A, #13
@@ -309,49 +546,668 @@ _usb_init:
 	B0BSET FSOF_INT_EN ; Enable SOF interrupt request
 	RET
 
-_kbd_sense:
+_kbd_update_boot_keys:
+	; Update boot interface key bytes
+	B0BTS0 keyErrorRollOver  ; Jump if rollover error
+	JMP _kbd_update_boot_keys_rollover
+
 	MOV A, #0
-	B0MOV kbdSense1, A
-	B0MOV kbdSense2, A
+	B0MOV bootKeys0, A
+	B0MOV bootKeys1, A
+	B0MOV bootKeys2, A
+	B0MOV bootKeys3, A
+	B0MOV bootKeys4, A
+	B0MOV bootKeys5, A
+	B0MOV bootKeyVal, A
+	B0MOV Y, A
+
+	MOV A, #bootKeys0$L
+	B0MOV bootKeyIdx, A
+	MOV A, #keyState0$L
+	B0MOV keyStateIdx, A
+
+_kbd_update_boot_keys_loop:
+	B0MOV A, keyStateIdx
+	MOV   Z, A
+	B0MOV A, @YZ
+	B0BTS0 FZ  ; Jump if zero
+	JMP _kbd_update_boot_keys_nextbyte
+
+	B0MOV keyStateVal, A
+	B0MOV R, #0x8
+
+@@:
+	RRCM keyStateVal
+	B0BTS1 FC  ; Jump if not carry set
+	JMP _kbd_update_boot_keys_nextbit
+
+	; Write the boot key value
+	B0MOV A, bootKeyIdx
+	MOV   Z, A
+
+	; Check if we still have space
+	SUB   A, #1
+	SUB   A, #bootKeys5$L
+	B0BTS0 FC  ; Jump if carry set
+	JMP _kbd_update_boot_keys_rollover
+
+	; Write the value
+	B0MOV A, bootKeyVal
+	B0MOV @YZ, A
+
+	; Update pointer
+	INCMS bootKeyIdx
+
+_kbd_update_boot_keys_nextbit:
+	INCMS bootKeyVal
+	DECMS R
+	JMP @B
+	JMP @F
+
+_kbd_update_boot_keys_nextbyte:
+	MOV A, #8
+	ADD bootKeyVal, A
+@@:
+	INCMS keyStateIdx
+	; Check if we the idx has reached the bitfield end
+	MOV A, keyStateIdx
+	SUB A, #1
+	SUB A, #keyState17
+	B0BTS1 FC  ; Jump if not carry set
+	JMP _kbd_update_boot_keys_loop
+
+	; normal exit
+	RET
+
+_kbd_update_boot_keys_rollover:
+	MOV A, #1
+	B0MOV bootKeys0, A
+	B0MOV bootKeys1, A
+	B0MOV bootKeys2, A
+	B0MOV bootKeys3, A
+	B0MOV bootKeys4, A
+	B0MOV bootKeys5, A
+	RET
+
+_kbd_sense:
+	B0MOV A, kbdRow
+	AND A, #0x7
+.ALIGN 16
+	B0ADD PCL, A
+	JMP _kbd_sense_row0
+	JMP _kbd_sense_row1
+	JMP _kbd_sense_row2
+	JMP _kbd_sense_row3
+	JMP _kbd_sense_row4
+	JMP _kbd_sense_row5
+	JMP _kbd_sense_row6
+	JMP _kbd_sense_row7
+
+_kbd_sense_row0:
+	; DB keyESC, keyF4, keyNONUSBACKSLASH, keyNONE, keyG, keyH, keyF6, keyINTERNATIONAL4
+	B0BTS0 S0
+	B0BCLR keyESC
 	B0BTS1 S0
-	B0BSET kbdSense1.0
+	B0BSET keyESC
+	B0BTS0 S1
+	B0BCLR keyF4
 	B0BTS1 S1
-	B0BSET kbdSense1.1
+	B0BSET keyF4
+	B0BTS0 S2
+	B0BCLR keyNONUSBACKSLASH
 	B0BTS1 S2
-	B0BSET kbdSense1.2
+	B0BSET keyNONUSBACKSLASH
+	B0BTS0 S3
+	B0BCLR keyNONE
 	B0BTS1 S3
-	B0BSET kbdSense1.3
+	B0BSET keyNONE
+	B0BTS0 S4
+	B0BCLR keyG
 	B0BTS1 S4
-	B0BSET kbdSense1.4
+	B0BSET keyG
+	B0BTS0 S5
+	B0BCLR keyH
 	B0BTS1 S5
-	B0BSET kbdSense1.5
+	B0BSET keyH
+	B0BTS0 S6
+	B0BCLR keyF6
 	B0BTS1 S6
-	B0BSET kbdSense1.6
+	B0BSET keyF6
+	B0BTS0 S7
+	B0BCLR keyINTERNATIONAL4
 	B0BTS1 S7
-	B0BSET kbdSense1.7
+	B0BSET keyINTERNATIONAL4
+
+	; DB keyAPOSTROPHE, keyNONE, keyF5, keyNONE, keyLALT, keyNONE, keyUP, keyNONE
+	B0BTS0 S8
+	B0BCLR keyAPOSTROPHE
 	B0BTS1 S8
-	B0BSET kbdSense2.0
+	B0BSET keyAPOSTROPHE
+	B0BTS0 S9
+	B0BCLR keyNONE
 	B0BTS1 S9
-	B0BSET kbdSense2.1
+	B0BSET keyNONE
+	B0BTS0 S10
+	B0BCLR keyF5
 	B0BTS1 S10
-	B0BSET kbdSense2.2
+	B0BSET keyF5
+	B0BTS0 S11
+	B0BCLR keyNONE
 	B0BTS1 S11
-	B0BSET kbdSense2.3
+	B0BSET keyNONE
+	B0BTS0 S12
+	B0BCLR keyLALT
 	B0BTS1 S12
-	B0BSET kbdSense2.4
+	B0BSET keyLALT
+	B0BTS0 S13
+	B0BCLR keyNONE
 	B0BTS1 S13
-	B0BSET kbdSense2.5
+	B0BSET keyNONE
+	B0BTS0 S14
+	B0BCLR keyUP
 	B0BTS1 S14
-	B0BSET kbdSense2.6
+	B0BSET keyUP
+	B0BTS0 S15
+	B0BCLR keyNONE
 	B0BTS1 S15
-	B0BSET kbdSense2.7
+	B0BSET keyNONE
+	RET
+
+_kbd_sense_row1:
+	; DB keyTAB, keyF3, keyCAPSLOCK, keyNONE, keyT, keyY, keyRIGHTBRACKET, keyF7
+	B0BTS0 S0
+	B0BCLR keyTAB
+	B0BTS1 S0
+	B0BSET keyTAB
+	B0BTS0 S1
+	B0BCLR keyF3
+	B0BTS1 S1
+	B0BSET keyF3
+	B0BTS0 S2
+	B0BCLR keyCAPSLOCK
+	B0BTS1 S2
+	B0BSET keyCAPSLOCK
+	B0BTS0 S3
+	B0BCLR keyNONE
+	B0BTS1 S3
+	B0BSET keyNONE
+	B0BTS0 S4
+	B0BCLR keyT
+	B0BTS1 S4
+	B0BSET keyT
+	B0BTS0 S5
+	B0BCLR keyY
+	B0BTS1 S5
+	B0BSET keyY
+	B0BTS0 S6
+	B0BCLR keyRIGHTBRACKET
+	B0BTS1 S6
+	B0BSET keyRIGHTBRACKET
+	B0BTS0 S7
+	B0BCLR keyF7
+	B0BTS1 S7
+	B0BSET keyF7
+
+	; DB keyLEFTBRACKET, keyLSHIFT, keyBACKSPACE, keyNONE, keyNONE, keyLGUI, keyKPMEMSTORE, keyNONE
+	B0BTS0 S8
+	B0BCLR keyLEFTBRACKET
+	B0BTS1 S8
+	B0BSET keyLEFTBRACKET
+	B0BTS0 S9
+	B0BCLR keyLSHIFT
+	B0BTS1 S9
+	B0BSET keyLSHIFT
+	B0BTS0 S10
+	B0BCLR keyBACKSPACE
+	B0BTS1 S10
+	B0BSET keyBACKSPACE
+	B0BTS0 S11
+	B0BCLR keyNONE
+	B0BTS1 S11
+	B0BSET keyNONE
+	B0BTS0 S12
+	B0BCLR keyNONE
+	B0BTS1 S12
+	B0BSET keyNONE
+	B0BTS0 S13
+	B0BCLR keyLGUI
+	B0BTS1 S13
+	B0BSET keyLGUI
+	B0BTS0 S14
+	B0BCLR keyNONE
+	B0BTS1 S14
+	B0BSET keyNONE
+	B0BTS0 S15
+	B0BCLR keyNONE
+	B0BTS1 S15
+	B0BSET keyNONE
+	RET
+
+_kbd_sense_row2:
+	; DB keyQ, keyE, keyW, keyNONE, keyR, keyU, keyI, keyO
+	B0BTS0 S0
+	B0BCLR keyQ
+	B0BTS1 S0
+	B0BSET keyQ
+	B0BTS0 S1
+	B0BCLR keyE
+	B0BTS1 S1
+	B0BSET keyE
+	B0BTS0 S2
+	B0BCLR keyW
+	B0BTS1 S2
+	B0BSET keyW
+	B0BTS0 S3
+	B0BCLR keyNONE
+	B0BTS1 S3
+	B0BSET keyNONE
+	B0BTS0 S4
+	B0BCLR keyR
+	B0BTS1 S4
+	B0BSET keyR
+	B0BTS0 S5
+	B0BCLR keyU
+	B0BTS1 S5
+	B0BSET keyU
+	B0BTS0 S6
+	B0BCLR keyI
+	B0BTS1 S6
+	B0BSET keyI
+	B0BTS0 S7
+	B0BCLR keyO
+	B0BTS1 S7
+	B0BSET keyO
+
+	; DB keyP, keyNONE, keyINTERNATIONAL3, keyNONE, keyNONE, keyKPMEMCLEAR, keyNONE, keyNONE
+	B0BTS0 S8
+	B0BCLR keyP
+	B0BTS1 S8
+	B0BSET keyP
+	B0BTS0 S9
+	B0BCLR keyNONE
+	B0BTS1 S9
+	B0BSET keyNONE
+	B0BTS0 S10
+	B0BCLR keyINTERNATIONAL3
+	B0BTS1 S10
+	B0BSET keyINTERNATIONAL3
+	B0BTS0 S11
+	B0BCLR keyNONE
+	B0BTS1 S11
+	B0BSET keyNONE
+	B0BTS0 S12
+	B0BCLR keyNONE
+	B0BTS1 S12
+	B0BSET keyNONE
+	B0BTS0 S13
+	B0BCLR keyNONE
+	B0BTS1 S13
+	B0BSET keyNONE
+	B0BTS0 S14
+	B0BCLR keyNONE
+	B0BTS1 S14
+	B0BSET keyNONE
+	B0BTS0 S15
+	B0BCLR keyNONE
+	B0BTS1 S15
+	B0BSET keyNONE
+	RET
+
+_kbd_sense_row3:
+	; DB keyGRAVE, keyF2, keyF1, keyLCTRL, key5, key6, keyEQUALS, keyF8
+	B0BTS0 S0
+	B0BCLR keyGRAVE
+	B0BTS1 S0
+	B0BSET keyGRAVE
+	B0BTS0 S1
+	B0BCLR keyF2
+	B0BTS1 S1
+	B0BSET keyF2
+	B0BTS0 S2
+	B0BCLR keyF1
+	B0BTS1 S2
+	B0BSET keyF1
+	B0BTS0 S3
+	B0BCLR keyLCTRL
+	B0BTS1 S3
+	B0BSET keyLCTRL
+	B0BTS0 S4
+	B0BCLR key5
+	B0BTS1 S4
+	B0BSET key5
+	B0BTS0 S5
+	B0BCLR key6
+	B0BTS1 S5
+	B0BSET key6
+	B0BTS0 S6
+	B0BCLR keyEQUALS
+	B0BTS1 S6
+	B0BSET keyEQUALS
+	B0BTS0 S7
+	B0BCLR keyF8
+	B0BTS1 S7
+	B0BSET keyF8
+
+	; DB keyMINUS, keyNONE, keyF9, keyHOME, keyKPMEMSUBTRACT, keyNONE, keyNONE, keyDELETE
+	B0BTS0 S8
+	B0BCLR keyMINUS
+	B0BTS1 S8
+	B0BSET keyMINUS
+	B0BTS0 S9
+	B0BCLR keyNONE
+	B0BTS1 S9
+	B0BSET keyNONE
+	B0BTS0 S10
+	B0BCLR keyF9
+	B0BTS1 S10
+	B0BSET keyF9
+	B0BTS0 S11
+	B0BCLR keyHOME
+	B0BTS1 S11
+	B0BSET keyHOME
+	B0BTS0 S12
+	B0BCLR keyNONE
+	B0BTS1 S12
+	B0BSET keyNONE
+	B0BTS0 S13
+	B0BCLR keyNONE
+	B0BTS1 S13
+	B0BSET keyNONE
+	B0BTS0 S14
+	B0BCLR keyNONE
+	B0BTS1 S14
+	B0BSET keyNONE
+	B0BTS0 S15
+	B0BCLR keyDELETE
+	B0BTS1 S15
+	B0BSET keyDELETE
+	RET
+
+_kbd_sense_row4:
+	; DB keyA, keyD, keyS, keyNONE, keyF, keyJ, keyK, keyL
+	B0BTS0 S0
+	B0BCLR keyA
+	B0BTS1 S0
+	B0BSET keyA
+	B0BTS0 S1
+	B0BCLR keyD
+	B0BTS1 S1
+	B0BSET keyD
+	B0BTS0 S2
+	B0BCLR keyS
+	B0BTS1 S2
+	B0BSET keyS
+	B0BTS0 S3
+	B0BCLR keyNONE
+	B0BTS1 S3
+	B0BSET keyNONE
+	B0BTS0 S4
+	B0BCLR keyF
+	B0BTS1 S4
+	B0BSET keyF
+	B0BTS0 S5
+	B0BCLR keyJ
+	B0BTS1 S5
+	B0BSET keyJ
+	B0BTS0 S6
+	B0BCLR keyK
+	B0BTS1 S6
+	B0BSET keyK
+	B0BTS0 S7
+	B0BCLR keyL
+	B0BTS1 S7
+	B0BSET keyL
+
+	; DB keySEMICOLON, keyNONE, keyBACKSLASH, keyNONE, keyNONE, keyNONE, keyFN, keyPRINTSCREEN
+	B0BTS0 S8
+	B0BCLR keySEMICOLON
+	B0BTS1 S8
+	B0BSET keySEMICOLON
+	B0BTS0 S9
+	B0BCLR keyNONE
+	B0BTS1 S9
+	B0BSET keyNONE
+	B0BTS0 S10
+	B0BCLR keyBACKSLASH
+	B0BTS1 S10
+	B0BSET keyBACKSLASH
+	B0BTS0 S11
+	B0BCLR keyNONE
+	B0BTS1 S11
+	B0BSET keyNONE
+	B0BTS0 S12
+	B0BCLR keyNONE
+	B0BTS1 S12
+	B0BSET keyNONE
+	B0BTS0 S13
+	B0BCLR keyNONE
+	B0BTS1 S13
+	B0BSET keyNONE
+	B0BTS0 S14
+	B0BCLR keyFN
+	B0BTS1 S14
+	B0BSET keyFN
+	B0BTS0 S15
+	B0BCLR keyPRINTSCREEN
+	B0BTS1 S15
+	B0BSET keyPRINTSCREEN
+	RET
+
+_kbd_sense_row5:
+	; DB key1, key3, key2, keyNONE, key4, key7, key8, key9
+	B0BTS0 S0
+	B0BCLR key1
+	B0BTS1 S0
+	B0BSET key1
+	B0BTS0 S1
+	B0BCLR key3
+	B0BTS1 S1
+	B0BSET key3
+	B0BTS0 S2
+	B0BCLR key2
+	B0BTS1 S2
+	B0BSET key2
+	B0BTS0 S3
+	B0BCLR keyNONE
+	B0BTS1 S3
+	B0BSET keyNONE
+	B0BTS0 S4
+	B0BCLR key4
+	B0BTS1 S4
+	B0BSET key4
+	B0BTS0 S5
+	B0BCLR key7
+	B0BTS1 S5
+	B0BSET key7
+	B0BTS0 S6
+	B0BCLR key8
+	B0BTS1 S6
+	B0BSET key8
+	B0BTS0 S7
+	B0BCLR key9
+	B0BTS1 S7
+	B0BSET key9
+
+	; DB key0, keyNONE, keyF10, keyF11, keyNONE, keyF12, keyEND, keyINSERT
+	B0BTS0 S8
+	B0BCLR key0
+	B0BTS1 S8
+	B0BSET key0
+	B0BTS0 S9
+	B0BCLR keyNONE
+	B0BTS1 S9
+	B0BSET keyNONE
+	B0BTS0 S10
+	B0BCLR keyF10
+	B0BTS1 S10
+	B0BSET keyF10
+	B0BTS0 S11
+	B0BCLR keyF11
+	B0BTS1 S11
+	B0BSET keyF11
+	B0BTS0 S12
+	B0BCLR keyNONE
+	B0BTS1 S12
+	B0BSET keyNONE
+	B0BTS0 S13
+	B0BCLR keyF12
+	B0BTS1 S13
+	B0BSET keyF12
+	B0BTS0 S14
+	B0BCLR keyEND
+	B0BTS1 S14
+	B0BSET keyEND
+	B0BTS0 S15
+	B0BCLR keyINSERT
+	B0BTS1 S15
+	B0BSET keyINSERT
+	RET
+
+_kbd_sense_row6:
+	; DB keyZ, keyC, keyX, keyRCTRL, keyV, keyM, keyCOMMA, keyPERIOD
+	B0BTS0 S0
+	B0BCLR keyZ
+	B0BTS1 S0
+	B0BSET keyZ
+	B0BTS0 S1
+	B0BCLR keyC
+	B0BTS1 S1
+	B0BSET keyC
+	B0BTS0 S2
+	B0BCLR keyX
+	B0BTS1 S2
+	B0BSET keyX
+	B0BTS0 S3
+	B0BCLR keyRCTRL
+	B0BTS1 S3
+	B0BSET keyRCTRL
+	B0BTS0 S4
+	B0BCLR keyV
+	B0BTS1 S4
+	B0BSET keyV
+	B0BTS0 S5
+	B0BCLR keyM
+	B0BTS1 S5
+	B0BSET keyM
+	B0BTS0 S6
+	B0BCLR keyCOMMA
+	B0BTS1 S6
+	B0BSET keyCOMMA
+	B0BTS0 S7
+	B0BCLR keyPERIOD
+	B0BTS1 S7
+	B0BSET keyPERIOD
+
+	; DB keyNONUSHASH, keyRSHIFT, keyRETURN, keyNONE, keyNONE, keyNONE, keyPAUSE, keyPAGEUP
+	B0BTS0 S8
+	B0BCLR keyNONUSHASH
+	B0BTS1 S8
+	B0BSET keyNONUSHASH
+	B0BTS0 S9
+	B0BCLR keyRSHIFT
+	B0BTS1 S9
+	B0BSET keyRSHIFT
+	B0BTS0 S10
+	B0BCLR keyRETURN
+	B0BTS1 S10
+	B0BSET keyRETURN
+	B0BTS0 S11
+	B0BCLR keyNONE
+	B0BTS1 S11
+	B0BSET keyNONE
+	B0BTS0 S12
+	B0BCLR keyNONE
+	B0BTS1 S12
+	B0BSET keyNONE
+	B0BTS0 S13
+	B0BCLR keyNONE
+	B0BTS1 S13
+	B0BSET keyNONE
+	B0BTS0 S14
+	B0BCLR keyPAUSE
+	B0BTS1 S14
+	B0BSET keyPAUSE
+	B0BTS0 S15
+	B0BCLR keyPAGEUP
+	B0BTS1 S15
+	B0BSET keyPAGEUP
+	RET
+
+_kbd_sense_row7:
+	; DB keyINTERNATIONAL5, keyNONE, keyNONE, keyNONE, keyB, keyN, keyINTERNATIONAL1, keyINTERNATIONAL2
+	B0BTS0 S0
+	B0BCLR keyINTERNATIONAL5
+	B0BTS1 S0
+	B0BSET keyINTERNATIONAL5
+	B0BTS0 S1
+	B0BCLR keyNONE
+	B0BTS1 S1
+	B0BSET keyNONE
+	B0BTS0 S2
+	B0BCLR keyNONE
+	B0BTS1 S2
+	B0BSET keyNONE
+	B0BTS0 S3
+	B0BCLR keyNONE
+	B0BTS1 S3
+	B0BSET keyNONE
+	B0BTS0 S4
+	B0BCLR keyB
+	B0BTS1 S4
+	B0BSET keyB
+	B0BTS0 S5
+	B0BCLR keyN
+	B0BTS1 S5
+	B0BSET keyN
+	B0BTS0 S6
+	B0BCLR keyINTERNATIONAL1
+	B0BTS1 S6
+	B0BSET keyINTERNATIONAL1
+	B0BTS0 S7
+	B0BCLR keyINTERNATIONAL2
+	B0BTS1 S7
+	B0BSET keyINTERNATIONAL2
+
+	; DB keySLASH, keyNONE, keySPACE, keyDOWN, keyRALT, keyRIGHT, keyLEFT, keyPAGEDOWN
+	B0BTS0 S8
+	B0BCLR keySLASH
+	B0BTS1 S8
+	B0BSET keySLASH
+	B0BTS0 S9
+	B0BCLR keyNONE
+	B0BTS1 S9
+	B0BSET keyNONE
+	B0BTS0 S10
+	B0BCLR keySPACE
+	B0BTS1 S10
+	B0BSET keySPACE
+	B0BTS0 S11
+	B0BCLR keyDOWN
+	B0BTS1 S11
+	B0BSET keyDOWN
+	B0BTS0 S12
+	B0BCLR keyRALT
+	B0BTS1 S12
+	B0BSET keyRALT
+	B0BTS0 S13
+	B0BCLR keyRIGHT
+	B0BTS1 S13
+	B0BSET keyRIGHT
+	B0BTS0 S14
+	B0BCLR keyLEFT
+	B0BTS1 S14
+	B0BSET keyLEFT
+	B0BTS0 S15
+	B0BCLR keyPAGEDOWN
+	B0BTS1 S15
+	B0BSET keyPAGEDOWN
 	RET
 
 _kbd_set_row_output:
 	B0MOV A, kbdRow
-	AND A, #0x7
-	MOV R, A
-	ADD A, R
+	ADD   A, kbdRow
+	AND   A, #0xf
+.ALIGN 16
 	B0ADD PCL, A
 	B0BSET R0M
 	RET
@@ -372,9 +1228,9 @@ _kbd_set_row_output:
 
 _kbd_set_row_input:
 	B0MOV A, kbdRow
-	AND A, #0x7
-	MOV R, A
-	ADD A, R
+	ADD   A, kbdRow
+	AND   A, #0xf
+.ALIGN 16
 	B0ADD PCL, A
 	B0BCLR R0M
 	RET
@@ -490,6 +1346,7 @@ _usb_dth_get_device_descriptor:
 	B0BTS0 FC
 	JMP _usb_get_desc_badidx
 	B0MOV A, wValueHi
+.ALIGN 8
 	B0ADD PCL, A
 	JMP _usb_get_desc_badidx
 	JMP _usb_get_desc_device
@@ -504,6 +1361,7 @@ _usb_dth_get_interface_descriptor:
 	JMP _usb_get_desc_badidx
 	B0MOV A, wValueHi
 	SUB A, #0x20
+.ALIGN 8
 	B0ADD PCL, A
 	JMP _usb_get_desc_badidx
 	JMP _usb_get_desc_hid
@@ -703,6 +1561,7 @@ _usb_get_desc_string:
 	B0BTS0 FC
 	JMP _usb_get_desc_badidx
 	B0MOV A, wValueLo
+.ALIGN 8
 	B0ADD PCL, A
 	JMP _usb_get_string_langids
 	JMP _usb_get_string_mfg
@@ -1031,6 +1890,7 @@ _jmp_yz:  ; FIXME: Interrupts must be disabled
 	;     8      1      1      1    STK7H   STK7L
 	B0MOV A, STKP
 	AND   A, #7
+.ALIGN 16
 	B0ADD PCL, A
 	JMP _set_stack_6 ; STKP 0 / Level 7
 	JMP _set_stack_5 ; STKP 1 / Level 6
