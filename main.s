@@ -146,7 +146,7 @@ keyA               EQU keyState0.4
 keyB               EQU keyState0.5
 keyC               EQU keyState0.6
 keyD               EQU keyState0.7
-keyE               EQU keyState1.0
+keyE               EQU keyState1.0  ; 8
 keyF               EQU keyState1.1
 keyG               EQU keyState1.2
 keyH               EQU keyState1.3
@@ -154,7 +154,7 @@ keyI               EQU keyState1.4
 keyJ               EQU keyState1.5
 keyK               EQU keyState1.6
 keyL               EQU keyState1.7
-keyM               EQU keyState2.0
+keyM               EQU keyState2.0  ; 16
 keyN               EQU keyState2.1
 keyO               EQU keyState2.2
 keyP               EQU keyState2.3
@@ -162,7 +162,7 @@ keyQ               EQU keyState2.4
 keyR               EQU keyState2.5
 keyS               EQU keyState2.6
 keyT               EQU keyState2.7
-keyU               EQU keyState3.0
+keyU               EQU keyState3.0  ; 24
 keyV               EQU keyState3.1
 keyW               EQU keyState3.2
 keyX               EQU keyState3.3
@@ -170,7 +170,7 @@ keyY               EQU keyState3.4
 keyZ               EQU keyState3.5
 key1               EQU keyState3.6
 key2               EQU keyState3.7
-key3               EQU keyState4.0
+key3               EQU keyState4.0  ; 32
 key4               EQU keyState4.1
 key5               EQU keyState4.2
 key6               EQU keyState4.3
@@ -178,7 +178,7 @@ key7               EQU keyState4.4
 key8               EQU keyState4.5
 key9               EQU keyState4.6
 key0               EQU keyState4.7
-keyRETURN          EQU keyState5.0
+keyRETURN          EQU keyState5.0  ; 40
 keyESC             EQU keyState5.1
 keyBACKSPACE       EQU keyState5.2
 keyTAB             EQU keyState5.3
@@ -186,7 +186,7 @@ keySPACE           EQU keyState5.4
 keyMINUS           EQU keyState5.5
 keyEQUALS          EQU keyState5.6
 keyLEFTBRACKET     EQU keyState5.7
-keyRIGHTBRACKET    EQU keyState6.0
+keyRIGHTBRACKET    EQU keyState6.0  ; 48
 keyBACKSLASH       EQU keyState6.1
 keyNONUSHASH       EQU keyState6.2
 keySEMICOLON       EQU keyState6.3
@@ -194,7 +194,7 @@ keyAPOSTROPHE      EQU keyState6.4
 keyGRAVE           EQU keyState6.5
 keyCOMMA           EQU keyState6.6
 keyPERIOD          EQU keyState6.7
-keySLASH           EQU keyState7.0
+keySLASH           EQU keyState7.0  ; 56
 keyCAPSLOCK        EQU keyState7.1
 keyF1              EQU keyState7.2
 keyF2              EQU keyState7.3
@@ -202,7 +202,7 @@ keyF3              EQU keyState7.4
 keyF4              EQU keyState7.5
 keyF5              EQU keyState7.6
 keyF6              EQU keyState7.7
-keyF7              EQU keyState8.0
+keyF7              EQU keyState8.0  ; 64
 keyF8              EQU keyState8.1
 keyF9              EQU keyState8.2
 keyF10             EQU keyState8.3
@@ -210,7 +210,7 @@ keyF11             EQU keyState8.4
 keyF12             EQU keyState8.5
 keyPRINTSCREEN     EQU keyState8.6
 keySCROLLLOCK      EQU keyState8.7
-keyPAUSE           EQU keyState9.0
+keyPAUSE           EQU keyState9.0  ; 72
 keyINSERT          EQU keyState9.1
 keyHOME            EQU keyState9.2
 keyPAGEUP          EQU keyState9.3
@@ -218,7 +218,7 @@ keyDELETE          EQU keyState9.4
 keyEND             EQU keyState9.5
 keyPAGEDOWN        EQU keyState9.6
 keyRIGHT           EQU keyState9.7
-keyLEFT            EQU keyState10.0
+keyLEFT            EQU keyState10.0  ; 80
 keyDOWN            EQU keyState10.1
 keyUP              EQU keyState10.2
 keyNUMLOCK         EQU keyState10.3
@@ -226,7 +226,7 @@ keyKPDIV           EQU keyState10.4
 keyKPMUL           EQU keyState10.5
 keyKPMINUS         EQU keyState10.6
 keyKPPLUS          EQU keyState10.7
-keyKPENTER         EQU keyState11.0
+keyKPENTER         EQU keyState11.0  ; 88
 keyKP1             EQU keyState11.1
 keyKP2             EQU keyState11.2
 keyKP3             EQU keyState11.3
@@ -234,7 +234,7 @@ keyKP4             EQU keyState11.4
 keyKP5             EQU keyState11.5
 keyKP6             EQU keyState11.6
 keyKP7             EQU keyState11.7
-keyKP8             EQU keyState12.0
+keyKP8             EQU keyState12.0  ; 96
 keyKP9             EQU keyState12.1
 keyKP0             EQU keyState12.2
 keyKPCOLON         EQU keyState12.3
@@ -242,6 +242,11 @@ keyNONUSBACKSLASH  EQU keyState12.4
 keyAPPLICATION     EQU keyState12.5
 keyPOWER           EQU keyState12.6
 keyKPEQUALS        EQU keyState12.7  ; 103
+
+keyFIND            EQU keyState15.6  ; 126
+keyMUTE            EQU keyState15.7  ; 127
+keyVOLUMEUP        EQU keyState16.0  ; 128
+keyVOLUMEDOWN      EQU keyState16.1  ; 129
 
 keyINTERNATIONAL1  EQU keyState16.7  ; 135
 keyINTERNATIONAL2  EQU keyState17.0
@@ -784,6 +789,19 @@ _kbd_sense_row0:
 	B0BSET keyNONE
 	RET
 
+_key_f3_clear:
+	B0BCLR keyF3
+	B0BCLR keyVOLUMEUP
+	RET
+_key_f3_set:
+	B0BTS0 keyFN
+	JMP @F
+	B0BSET keyF3
+	RET
+@@:
+	B0BSET keyVOLUMEUP
+	RET
+
 _kbd_sense_row1:
 	; DB keyTAB, keyF3, keyCAPSLOCK, keyNONE, keyT, keyY, keyRIGHTBRACKET, keyF7
 	B0BTS0 S0
@@ -791,9 +809,9 @@ _kbd_sense_row1:
 	B0BTS1 S0
 	B0BSET keyTAB
 	B0BTS0 S1
-	B0BCLR keyF3
+	CALL _key_f3_clear
 	B0BTS1 S1
-	B0BSET keyF3
+	CALL _key_f3_set
 	B0BTS0 S2
 	B0BCLR keyCAPSLOCK
 	B0BTS1 S2
@@ -924,6 +942,32 @@ _kbd_sense_row2:
 	B0BSET keyNONE
 	RET
 
+_key_f1_clear:
+	B0BCLR keyF1
+	B0BCLR keyMUTE
+	RET
+_key_f1_set:
+	B0BTS0 keyFN
+	JMP @F
+	B0BSET keyF1
+	RET
+@@:
+	B0BSET keyMUTE
+	RET
+
+_key_f2_clear:
+	B0BCLR keyF2
+	B0BCLR keyVOLUMEDOWN
+	RET
+_key_f2_set:
+	B0BTS0 keyFN
+	JMP @F
+	B0BSET keyF2
+	RET
+@@:
+	B0BSET keyVOLUMEDOWN
+	RET
+
 _kbd_sense_row3:
 	; DB keyGRAVE, keyF2, keyF1, keyLCTRL, key5, key6, keyEQUALS, keyF8
 	B0BTS0 S0
@@ -931,13 +975,13 @@ _kbd_sense_row3:
 	B0BTS1 S0
 	B0BSET keyGRAVE
 	B0BTS0 S1
-	B0BCLR keyF2
+	CALL _key_f2_clear
 	B0BTS1 S1
-	B0BSET keyF2
+	CALL _key_f2_set
 	B0BTS0 S2
-	B0BCLR keyF1
+	CALL _key_f1_clear
 	B0BTS1 S2
-	B0BSET keyF1
+	CALL _key_f1_set
 	B0BTS0 S3
 	B0BCLR keyLCTRL
 	B0BTS1 S3

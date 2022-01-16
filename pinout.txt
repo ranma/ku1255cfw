@@ -106,6 +106,30 @@ INTERNATIONAL4             F7              O             F8              L      
             UP    KP_MEMSTORE         (none)         (none)             FN            END          PAUSE           LEFT   P0.3/S14
         (none)         (none)         (none)         DELETE    PRINTSCREEN         INSERT         PAGEUP       PAGEDOWN   P0.6/S15
 
+FN-Key-Combos on origfw:
+(2) secondary evdev "consumer control"
+FN+F1   -> (2) MUTE (113)
+FN+F2   -> (2) VOLUMEDOWN (114)
+FN+F3   -> (2) VOLUMEUP (115)
+FN+F4   -> No action (symbol: toggle microphone)
+FN+F5   -> (2) BRIGHTNESSDOWN (224)
+FN+F6   -> (2) BRIGHTNESSUP (225)
+FN+F7   -> LGUI+P (125 + 25) (open display settings)
+FN+F8   -> No action (symbol: toggle rfkill)
+FN+F9   -> LGUI+F21 (125 + 191) (open settings)
+FN+F10  -> (2) SEARCH (217)
+FN+F11  -> LCTRL+LALT+Tab
+FN+F12  -> No action
+FN+P    -> PAUSE (119)
+FN+S    -> LALT+SYSRQ (56+99)
+FN+K    -> SCROLLLOCK (70)
+FN+B    -> LCTRL+PAUSE (29+119)
+FnLk not functional?
+
+Suggested for Thinkpads on https://support.lenovo.com/us/de/solutions/ht503647:
+Fn+4   -> Suspend machine
+Fn+Spacebar -> Toggle keyboard backlight modes (not applicable)
+
 Suspend/Resume notes:
 - In FS mode, if IDLE (J state) is held for more than 3ms without SOF,
   this signals SUSPEND. During suspend J state is kept. D+ pullup
