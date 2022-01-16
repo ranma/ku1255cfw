@@ -1376,6 +1376,10 @@ _usb_ep0_out:
 	JMP _mainloop
 
 _setup_dispatch_table:
+	DW 0x0001  ; CLEAR_FEATURE (device)
+	JMP _usb_htd_clear_feature
+	DW 0x0003  ; SET_FEATURE (device)
+	JMP _usb_htd_set_feature
 	DW 0x0005  ; SET_ADDRESS
 	JMP _usb_htd_set_address
 	DW 0x0009  ; SET_CONFIGURATION
@@ -1390,8 +1394,12 @@ _setup_dispatch_table:
 	JMP _usb_dth_get_status
 	DW 0x8006  ; GET_DESCRIPTOR (device)
 	JMP _usb_dth_get_device_descriptor
+	DW 0x8008  ; GET_CONFIGURATION (device)
+	JMP _usb_dth_get_device_configuration
 	DW 0x8106  ; GET_DESCRIPTOR (interface)
 	JMP _usb_dth_get_interface_descriptor
+	DW 0x810a  ; GET_INTERFACE (interface)
+	JMP _usb_dth_get_interface
 	DW 0xa101  ; HID GET_REPORT
 	JMP _usb_dth_hid_get_report
 	DW 0xa102  ; HID GET_IDLE
@@ -1532,6 +1540,9 @@ _string_product:
 
 _usb_status_ok:
 	DW 0
+
+_usb_configuration:
+	DB 1
 
 _kbd_hid_descriptor:
 	DB 9           ; bLength
@@ -1761,6 +1772,25 @@ _write_empty_to_ep0:
 	;B0BSET FUE0M1 ; Stall EP0 (FUE0M0 doesn't matter)
 	;RET
 
+_usb_dth_get_interface:
+	; There's not altsettings, so always return 0
+	MOV A, #_usb_status_ok$M
+	B0MOV txPtrHi, A
+	MOV A, #_usb_status_ok$L
+	B0MOV txPtrLo, A
+	MOV   A, #1
+	B0MOV txSizeLo, A
+	JMP _usb_write_ep0
+
+_usb_dth_get_device_configuration:
+	; There's only a single configuration, always return 1
+	MOV A, #_usb_configuration$M
+	B0MOV txPtrHi, A
+	MOV A, #_usb_configuration$L
+	B0MOV txPtrLo, A
+	MOV   A, #1
+	B0MOV txSizeLo, A
+	JMP _usb_write_ep0
 
 _usb_dth_get_status:
 	MOV A, #_usb_status_ok$M
@@ -1773,6 +1803,13 @@ _usb_dth_get_status:
 
 _usb_htd_set_configuration:
 	; Only one configuration, nothing to do.
+	MOV A, #0x20  ; ACK with no TX
+	B0MOV UE0R, A
+	RET
+
+_usb_htd_clear_feature:
+_usb_htd_set_feature:
+	; FIXME: For now we'll just ignore these
 	MOV A, #0x20  ; ACK with no TX
 	B0MOV UE0R, A
 	RET
