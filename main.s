@@ -278,6 +278,7 @@ keyRGUI            EQU modifierState1.7  ; 231
 keyFN              EQU modifierState2.0
 stateFnLock        EQU modifierState2.1
 stateFnCtrlSwap    EQU modifierState2.2
+stateHiddenESC     EQU modifierState2.3
 
 
 .CODE
@@ -719,12 +720,45 @@ _kbd_sense:
 	JMP _kbd_sense_row6
 	JMP _kbd_sense_row7
 
+_key_get_fnrow:
+	B0BTS0 keyFN
+	JMP @F
+	B0BCLR FC
+	B0BTS0 stateFnLock
+	B0BSET FC
+	RET
+@@:
+	B0BSET FC
+	B0BTS0 stateFnLock
+	B0BCLR FC
+	RET
+
+_key_esc_clear:
+	B0BCLR keyESC
+	B0BCLR stateHiddenESC
+	RET
+
+_key_esc_set:
+	B0BTS0 keyFN
+	JMP @F
+	B0BSET keyESC
+	RET
+@@:
+	; Make sure we only toggle once until ESC is released
+	B0BTS0 stateHiddenESC
+	RET
+	B0BSET stateHiddenESC
+	; Toggle stateFnLock
+	MOV A, #0x02
+	XOR modifierState2, A
+	RET
+
 _kbd_sense_row0:
 	; DB keyESC, keyF4, keyNONUSBACKSLASH, keyNONE, keyG, keyH, keyF6, keyINTERNATIONAL4
 	B0BTS0 S0
-	B0BCLR keyESC
+	CALL _key_esc_clear
 	B0BTS1 S0
-	B0BSET keyESC
+	CALL _key_esc_set
 	B0BTS0 S1
 	B0BCLR keyF4
 	B0BTS1 S1
@@ -794,7 +828,8 @@ _key_f3_clear:
 	B0BCLR keyVOLUMEUP
 	RET
 _key_f3_set:
-	B0BTS0 keyFN
+	CALL _key_get_fnrow
+	B0BTS0 FC
 	JMP @F
 	B0BSET keyF3
 	RET
@@ -947,7 +982,8 @@ _key_f1_clear:
 	B0BCLR keyMUTE
 	RET
 _key_f1_set:
-	B0BTS0 keyFN
+	CALL _key_get_fnrow
+	B0BTS0 FC
 	JMP @F
 	B0BSET keyF1
 	RET
@@ -960,12 +996,26 @@ _key_f2_clear:
 	B0BCLR keyVOLUMEDOWN
 	RET
 _key_f2_set:
-	B0BTS0 keyFN
+	CALL _key_get_fnrow
+	B0BTS0 FC
 	JMP @F
 	B0BSET keyF2
 	RET
 @@:
 	B0BSET keyVOLUMEDOWN
+	RET
+
+_key_lctrl_clear:
+	B0BTS0 stateFnCtrlSwap
+	B0BCLR keyFN
+	B0BTS1 stateFnCtrlSwap
+	B0BCLR keyLCTRL
+	RET
+_key_lctrl_set:
+	B0BTS0 stateFnCtrlSwap
+	B0BSET keyFN
+	B0BTS1 stateFnCtrlSwap
+	B0BSET keyLCTRL
 	RET
 
 _kbd_sense_row3:
@@ -983,9 +1033,9 @@ _kbd_sense_row3:
 	B0BTS1 S2
 	CALL _key_f1_set
 	B0BTS0 S3
-	B0BCLR keyLCTRL
+	CALL _key_lctrl_clear
 	B0BTS1 S3
-	B0BSET keyLCTRL
+	CALL _key_lctrl_set
 	B0BTS0 S4
 	B0BCLR key5
 	B0BTS1 S4
@@ -1036,6 +1086,19 @@ _kbd_sense_row3:
 	B0BCLR keyDELETE
 	B0BTS1 S15
 	B0BSET keyDELETE
+	RET
+
+_key_fn_clear:
+	B0BTS0 stateFnCtrlSwap
+	B0BCLR keyLCTRL
+	B0BTS1 stateFnCtrlSwap
+	B0BCLR keyFN
+	RET
+_key_fn_set:
+	B0BTS0 stateFnCtrlSwap
+	B0BSET keyLCTRL
+	B0BTS1 stateFnCtrlSwap
+	B0BSET keyFN
 	RET
 
 _kbd_sense_row4:
@@ -1099,9 +1162,9 @@ _kbd_sense_row4:
 	B0BTS1 S13
 	B0BSET keyNONE
 	B0BTS0 S14
-	B0BCLR keyFN
+	CALL _key_fn_clear
 	B0BTS1 S14
-	B0BSET keyFN
+	CALL _key_fn_set
 	B0BTS0 S15
 	B0BCLR keyPRINTSCREEN
 	B0BTS1 S15
@@ -1178,6 +1241,24 @@ _kbd_sense_row5:
 	B0BSET keyINSERT
 	RET
 
+_key_rctrl_clear:
+	B0BCLR keyRCTRL
+	RET
+_key_rctrl_set:
+	B0BTS0 keyFN
+	JMP @F
+	B0BSET keyRCTRL
+	RET
+@@:
+	; Make sure we only toggle once until RCTRL is released
+	B0BTS0 keyRCTRL
+	RET
+	B0BSET keyRCTRL
+	; Toggle stateFnCtrlSwap
+	MOV A, #0x04
+	XOR modifierState2, A
+	RET
+
 _kbd_sense_row6:
 	; DB keyZ, keyC, keyX, keyRCTRL, keyV, keyM, keyCOMMA, keyPERIOD
 	B0BTS0 S0
@@ -1193,9 +1274,9 @@ _kbd_sense_row6:
 	B0BTS1 S2
 	B0BSET keyX
 	B0BTS0 S3
-	B0BCLR keyRCTRL
+	CALL _key_rctrl_clear
 	B0BTS1 S3
-	B0BSET keyRCTRL
+	CALL _key_rctrl_set
 	B0BTS0 S4
 	B0BCLR keyV
 	B0BTS1 S4
