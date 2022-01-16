@@ -105,3 +105,22 @@ INTERNATIONAL4             F7              O             F8              L      
         (none)           LGUI    KP_MEMCLEAR         (none)         (none)            F12         (none)          RIGHT   P4.7/S13
             UP    KP_MEMSTORE         (none)         (none)             FN            END          PAUSE           LEFT   P0.3/S14
         (none)         (none)         (none)         DELETE    PRINTSCREEN         INSERT         PAGEUP       PAGEDOWN   P0.6/S15
+
+Suspend/Resume notes:
+- In FS mode, if IDLE (J state) is held for more than 3ms without SOF,
+  this signals SUSPEND. During suspend J state is kept. D+ pullup
+  continues to be powered.
+- Suspend current should be less than 2.5mA (including pullup/pulldowns)
+- Wakeup is signalled by either device or host by changing to K state
+  (min 1ms, max 15ms for device-caused wakeup)
+- Thus, UPID register can be used to temporarily override D+/D- state to
+  signal a RESUME request to the host
+- In powerdown, DS claims the SN8 can be woken by P0/P1 level change or USB bus
+  toggle, though maybe just P1 since there is only the P1W wake control
+  register
+- P1 would allow any key to wake the uC, assuming GPIO state is kept
+  during power-down:
+  Just enable pull-ups on P1, set Sn gpios to output low value, enable
+  P1W for all Rn.
+- Suitable modes: Slow mode, sleep mode, slow clock green mode (all at 250uA max)
+- Unsuitable modes: Normal mode (10mA), fast clock green mode (5mA)

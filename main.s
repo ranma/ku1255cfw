@@ -9,7 +9,7 @@ CHIP SN8F2288
 	.Code_Option	Reset_Pin	"P07"
 	.Code_Option	Rst_Length	"No"
 	.Code_Option	Security	"Enable"
-	.Code_Option	Watch_Dog	"Enable"
+	.Code_Option	Watch_Dog	"Enable"  ; On except for Green/Powerdown modes
 //}}SONIX_CODE_OPTION
 
 .DATA
@@ -405,7 +405,76 @@ _mainloop:
 	JMP _usb_reset
 	B0BTS0 FSOF
 	JMP _usb_sof
+	B0BTS0 FSUSPEND
+	JMP _usb_suspend
 	JMP @B
+
+_usb_suspend:
+	MOV A, #'P'
+	CALL _uart_tx
+	MOV A, #'D'
+	CALL _uart_tx
+
+	; enter suspend
+	B0BCLR 0xa9.4 ; Switch UTX to INPUT
+	B0BCLR P5M.3  ; Disable power LED
+
+	; output low on sense lines
+	B0BSET S0M
+	B0BSET S1M
+	B0BSET S2M
+	B0BSET S3M
+	B0BSET S4M
+	B0BSET S5M
+	B0BSET S6M
+	B0BSET S7M
+	B0BSET S8M
+	B0BSET S9M
+	B0BSET S10M
+	B0BSET S11M
+	B0BSET S12M
+	B0BSET S13M
+	B0BSET S14M
+	B0BSET S15M
+
+	B0BSET FCPUM0 ; Enter sleep mode
+	NOP
+	NOP
+
+	; exit suspend
+	CALL _gpio_init
+	B0BSET 0xa9.4 ; Switch UTX to UART
+
+	; did host wake us?
+	B0BTS1 FSUSPEND
+	JMP @F
+
+	; key-press wake?
+	MOV A, #'!'
+	CALL _uart_tx
+
+	; Signal K state to wake host
+
+	; Drive D+ low, D- high (K state)
+	MOV A, #0x05
+	B0MOV UPID, A
+	; FIXME: Wait at least 1ms, no longer than 15ms
+	CALL _delayshort
+	CALL _delayshort
+	CALL _delayshort
+	CALL _delayshort
+	CALL _delayshort
+	CALL _delayshort
+	; Revert back to default
+	MOV A, #0x00
+	B0MOV UPID, A
+
+@@:
+	MOV A, #'W'
+	CALL _uart_tx
+	MOV A, #'U'
+	CALL _uart_tx
+	JMP _mainloop
 
 _usb_sof:
 	B0BCLR FSOF
@@ -510,6 +579,8 @@ _gpio_init:
 	B0MOV P2UR, A
 	B0MOV P4UR, A
 	B0MOV P5UR, A
+	; Enable P1 wakeup
+	B0MOV P1W, A
 	; Switch all to input
 	MOV A, #0x00
 	B0MOV P0M, A
