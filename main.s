@@ -1512,7 +1512,9 @@ _i2c_sda0:
 
 _i2c_scl1:
 	B0BCLR tpSCLM  ; Set SCL to input
-	JMP $+1
+@@:
+	B0BTS1 tpSCL   ; Wait until SCL high
+	JMP @B
 	NOP
 	RET
 
@@ -1524,7 +1526,7 @@ _i2c_scl0:
 
 _i2c_start:
 	CALL _i2c_sda1   ; 8 cycles
-	CALL _i2c_scl1   ; 8 cycles
+	CALL _i2c_scl1   ; 8+N cycles
 	CALL _i2c_sda0   ; 8 cycles
 	CALL _i2c_scl0   ; 8 cycles
 	RET
