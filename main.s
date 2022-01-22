@@ -1531,6 +1531,12 @@ _setup_dispatch_table:
 	JMP _usb_setup_default
 	DW 0xa103  ; HID GET_PROTOCOL
 	JMP _usb_setup_default
+	DW 0xc090
+	JMP _usb_dth_vend_read_ram
+	DW 0xc092
+	JMP _usb_dth_vend_read_i2c
+	DW 0xc094
+	JMP _usb_dth_vend_read_code
 	DW 0xFFFF
 	JMP _usb_setup_default
 
@@ -1925,6 +1931,46 @@ _usb_dth_get_status:
 	MOV   A, #2
 	B0MOV txSizeLo, A
 	JMP _usb_write_ep0
+
+_usb_dth_vend_read_ram:
+	MOV A, #0
+	B0MOV UDP0, A
+
+	B0MOV A, wIndexLo
+	B0MOV Z, A
+	B0MOV A, wIndexHi
+	B0MOV Y, A
+	B0MOV A, wValueLo
+	B0MOV A, @YZ
+
+	B0MOV UDR0_W, A
+
+	MOV A, #0x21  ; Write 1 byte
+	B0MOV UE0R, A
+	RET
+
+_usb_dth_vend_read_code:
+	MOV A, #0
+	B0MOV UDP0, A
+
+	B0MOV A, wIndexLo
+	B0MOV Z, A
+	B0MOV A, wIndexHi
+	B0MOV Y, A
+	MOVC
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, R
+	B0MOV UDR0_W, A
+
+	MOV A, #0x22  ; Write 2 bytes
+	B0MOV UE0R, A
+	RET
+
+_usb_dth_vend_read_i2c:
+	MOV A, #0x21  ; Write 1 byte
+	B0MOV UE0R, A
+	RET
 
 _usb_htd_set_configuration:
 	; Only one configuration, nothing to do.
