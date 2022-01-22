@@ -17,6 +17,13 @@ _canary_check EQU 0x2880
 _flasher      EQU 0x2890
 UTX           EQU P0.6    ; S15
 URX           EQU P0.5    ; S10
+
+tpSCL         EQU P2.4
+tpSCLM        EQU P2M.4
+tpSDA         EQU P2.5
+tpSDAM        EQU P2M.5
+tpIRQ         EQU P2.6
+
 S0            EQU P2.2
 S0M           EQU P2M.2
 S1            EQU P2.0
@@ -137,6 +144,16 @@ keyState14     DS 1 ; 112-
 keyState15     DS 1 ; 120-
 keyState16     DS 1 ; 128-
 keyState17     DS 1 ; 136-
+
+i2cTxData      DS 1
+i2cRxData      DS 1
+i2cBitCnt      DS 1
+
+tpData0        DS 1
+tpData1        DS 1
+tpData2        DS 1
+tpData3        DS 1
+tpData4        DS 1
 
 ramClearEnd    DS 1
 
@@ -395,6 +412,18 @@ _start:
 	CALL _gpio_init
 	; Setup USB registers
 	CALL _usb_init
+	CALL _i2c_tp_init
+	CALL _i2c_tp_read
+	B0MOV A, tpData0
+	CALL _uart_hex
+	B0MOV A, tpData1
+	CALL _uart_hex
+	B0MOV A, tpData2
+	CALL _uart_hex
+	B0MOV A, tpData3
+	CALL _uart_hex
+	B0MOV A, tpData4
+	CALL _uart_hex
 
 _mainloop:
 	; Tickle watchdog
@@ -413,6 +442,8 @@ _mainloop:
 	JMP _usb_sof
 	B0BTS0 FSUSPEND
 	JMP _usb_suspend
+	B0BTS1 tpIRQ
+	JMP _tp_update
 	JMP @B
 
 _usb_suspend:
@@ -559,8 +590,8 @@ _kbd_write_ep1:
 	; Set EP1 to ACK
 	B0BSET FUE1M0
 
-	MOV A, #','
-	CALL _uart_tx
+	; MOV A, #','
+	; CALL _uart_tx
 	RET
 
 _usb_reset:
@@ -1466,6 +1497,142 @@ _kbd_count_rows_low:
 	INCMS kbdRowsLow
 	NOP
 	RET
+
+_i2c_sda1:
+	B0BCLR tpSDAM  ; Set SDA to input
+	JMP $+1
+	NOP
+	RET
+
+_i2c_sda0:
+	B0BSET tpSDAM  ; Set SDA to output
+	JMP $+1
+	NOP
+	RET
+
+_i2c_scl1:
+	B0BCLR tpSCLM  ; Set SCL to input
+	JMP $+1
+	NOP
+	RET
+
+_i2c_scl0:
+	B0BSET tpSCLM  ; Set SCL to output
+	JMP $+1
+	NOP
+	RET
+
+_i2c_start:
+	CALL _i2c_sda1   ; 8 cycles
+	CALL _i2c_scl1   ; 8 cycles
+	CALL _i2c_sda0   ; 8 cycles
+	CALL _i2c_scl0   ; 8 cycles
+	RET
+
+_i2c_stop:
+	CALL _i2c_sda0
+	CALL _i2c_scl1
+	CALL _i2c_sda1
+	RET
+
+_i2c_txbyte:
+	MOV A, #0
+	B0MOV i2cBitCnt, A
+_i2c_tx:
+	B0BTS0 i2cTxData.7
+	CALL _i2c_sda1
+	B0BTS1 i2cTxData.7
+	CALL _i2c_sda0
+	CALL _i2c_scl1
+	CALL _i2c_scl0
+	RLCM i2cTxData
+	INCMS  i2cBitCnt
+	B0BTS1 i2cBitCnt.3
+	JMP _i2c_tx
+	B0BTS1 i2cBitCnt.6
+	JMP _i2c_rx
+	B0MOV A, i2cRxData
+	RET
+
+_i2c_rxbyte:
+	MOV A, #0x40
+	B0MOV i2cBitCnt, A
+_i2c_rx:
+	CALL _i2c_sda1
+	CALL _i2c_scl1
+	RLCM i2cRxData
+	B0BTS0 tpSDA
+	B0BSET i2cRxData.0
+	B0BTS1 tpSDA
+	B0BCLR i2cRxData.0
+	CALL _i2c_scl0
+	INCMS  i2cBitCnt
+	B0BTS1 i2cBitCnt.3
+	JMP _i2c_rx
+	B0BTS0 i2cBitCnt.6
+	JMP _i2c_tx
+	RET
+
+_i2c_tp_write:
+	B0MOV R, A
+	CALL _i2c_start
+	MOV A, #0x54   ; I2C Address 0x2a
+	B0MOV i2cTxData, A
+	CALL _i2c_txbyte
+	B0MOV A, R
+	B0MOV i2cTxData, A
+	CALL _i2c_txbyte
+	CALL _i2c_stop
+	RET
+
+_i2c_tp_init:
+	MOV A, #0xfc
+	CALL _i2c_tp_write
+	CALL _delayshort
+	MOV A, #0xc4
+	CALL _i2c_tp_write
+	CALL _delayshort
+	RET
+
+_i2c_tp_read:
+	CALL _i2c_start
+	MOV A, #0x55   ; I2C Address 0x2a
+	B0MOV i2cTxData, A
+	CALL _i2c_txbyte
+	MOV A, #0x0f   ; 4xACK followed by NAKs
+	B0MOV i2cTxData, A
+	CALL _i2c_rxbyte
+	B0MOV tpData0, A
+	CALL _i2c_rxbyte
+	B0MOV tpData1, A
+	CALL _i2c_rxbyte
+	B0MOV tpData2, A
+	CALL _i2c_rxbyte
+	B0MOV tpData3, A
+	CALL _i2c_rxbyte
+	B0MOV tpData4, A
+	CALL _i2c_stop
+	RET
+
+_tp_update:
+	MOV A, #13
+	CALL _uart_tx
+	MOV A, #10
+	CALL _uart_tx
+	MOV A, #'T'
+	CALL _uart_tx
+	CALL _i2c_tp_read
+	B0MOV A, tpData0
+	CALL _uart_hex
+	B0MOV A, tpData1
+	CALL _uart_hex
+	B0MOV A, tpData2
+	CALL _uart_hex
+	B0MOV A, tpData3
+	CALL _uart_hex
+	B0MOV A, tpData4
+	CALL _uart_hex
+	JMP _mainloop
 
 _usb_ep0_in:
 	B0BCLR FEP0IN ; Early ack of IN irq, we can't get a new one until EP0 NAK state is cleared
