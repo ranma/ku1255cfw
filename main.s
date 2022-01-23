@@ -1735,6 +1735,8 @@ _setup_dispatch_table:
 	JMP _usb_setup_default
 	DW 0xc090
 	JMP _usb_dth_vend_read_ram
+	DW 0x4091
+	JMP _usb_htd_vend_write_ram
 	DW 0xc092
 	JMP _usb_dth_vend_read_i2c
 	DW 0xc094
@@ -2208,6 +2210,15 @@ _usb_dth_vend_read_ram:
 	MOV A, #0x21  ; Write 1 byte
 	B0MOV UE0R, A
 	RET
+
+_usb_htd_vend_write_ram:
+	B0MOV A, wIndexLo
+	B0MOV Z, A
+	B0MOV A, wIndexHi
+	B0MOV Y, A
+	B0MOV A, wValueLo
+	B0MOV @YZ, A
+	JMP _usb_write_ep0
 
 _usb_dth_vend_read_code:
 	MOV A, #0
