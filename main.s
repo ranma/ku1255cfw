@@ -413,17 +413,6 @@ _start:
 	; Setup USB registers
 	CALL _usb_init
 	CALL _i2c_tp_init
-	CALL _i2c_tp_read
-	B0MOV A, tpData0
-	CALL _uart_hex
-	B0MOV A, tpData1
-	CALL _uart_hex
-	B0MOV A, tpData2
-	CALL _uart_hex
-	B0MOV A, tpData3
-	CALL _uart_hex
-	B0MOV A, tpData4
-	CALL _uart_hex
 
 _mainloop:
 	; Tickle watchdog
@@ -552,6 +541,33 @@ _usb_sof:
 
 	JMP _mainloop
 
+_mouse_write_ep2:
+	B0BTS0 FUE2M0 ; Skip if zero
+	RET
+	; FUE2M0 is zero (NAK)
+	MOV A, #32   ; EP2 begins at offset 32
+	B0MOV UDP0, A
+
+	B0MOV A, tpData1  ; Button byte
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, tpData2  ; X-axis
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	MOV   A, #0
+	SUB   A, tpData3  ; Y-axis (inverted)
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	MOV   A, #0
+	B0MOV UDR0_W, A
+
+	MOV A, #4  ; EP2 count is 4
+	B0MOV UE2R_C, A
+
+	; Set EP2 to ACK
+	B0BSET FUE2M0
+	RET
+
 _kbd_write_ep1:
 	B0BTS0 FUE1M0 ; Skip if zero
 	RET
@@ -646,6 +662,8 @@ _usb_init:
 	B0MOV usbState, A
 	B0MOV usbState2, A
 	B0MOV USTATUS, A
+	MOV A, #32
+	B0MOV EP2FIFO_ADDR, A
 	MOV A, #0x80
 	B0MOV UDA, A  ; Set address to 0 and enable
 	B0MOV UE1R, A ; Enable EP1, set to NAK
@@ -1617,23 +1635,16 @@ _i2c_tp_read:
 	RET
 
 _tp_update:
-	MOV A, #13
-	CALL _uart_tx
-	MOV A, #10
-	CALL _uart_tx
 	MOV A, #'T'
 	CALL _uart_tx
 	CALL _i2c_tp_read
-	B0MOV A, tpData0
-	CALL _uart_hex
 	B0MOV A, tpData1
 	CALL _uart_hex
 	B0MOV A, tpData2
 	CALL _uart_hex
 	B0MOV A, tpData3
 	CALL _uart_hex
-	B0MOV A, tpData4
-	CALL _uart_hex
+	CALL _mouse_write_ep2
 	JMP _mainloop
 
 _usb_ep0_in:
@@ -1775,7 +1786,7 @@ _device_descriptor_end:
 _configuration_descriptor:
 	DB  9          ; bLength
 	DB  2          ; bDescriptorType (CONFIGURATION)
-	DB  0x32, 0x00 ; wTotalLength
+	DB  59, 0      ; wTotalLength
 	DB  2          ; bNumInterfaces
 	DB  1          ; bConfigurationValue
 	DB  0          ; iConfiguration (n/a)
@@ -1819,13 +1830,19 @@ _configuration_descriptor:
 	DB  2          ; bInterfaceProtocol (mouse)
 	DB  0          ; iInterface (n/a)
 
-	; FIXME: Add Mouse HID descriptor once Keyboard is working.
+	DB  9          ; bLength
+	DB  0x21       ; bDescriptorType (HID)
+	DB  0x00, 0x01 ; bcdHID (1.00)
+	DB  0          ; bCountryCode (Not Supported)
+	DB  1          ; bNumDescriptors
+	DB  0x22       ; bDescriptorType (Report)
+	DB  52, 0      ; wDescriptorLength (52)
 
 	DB  7          ; bLength
 	DB  5          ; bDescriptorType (ENDPOINT)
 	DB  0x82       ; bEndpointAddress (EP2 IN)
 	DB  0x03       ; bmAttributes (Interrupt, Data)
-	DB  0x3f, 0x00 ; wMaxPacketSize (63 bytes)
+	DB  8, 0       ; wMaxPacketSize (8 bytes)
 	DB  10         ; bInterval (10ms)
 _configuration_descriptor_end:
 
@@ -1899,6 +1916,44 @@ _kbd_report_descriptor:
 	DB 0xc0        ; End Collection (Application)
 _kbd_report_descriptor_end:
 
+_mouse_report_descriptor:
+	DB 0x05, 1     ; Usage Page (Generic Desktop)
+	DB 0x09, 2     ; Usage (Mouse)
+	DB 0xa1, 1     ; Collection (Application)
+
+	DB 0x09, 1     ;   Usage (Pointer)
+	DB 0xa1, 0     ;   Collection (Physical)
+
+	; Buttons
+	DB 0x05, 9     ;     Usage Page (Button)
+	DB 0x19, 1     ;     Usage Minimum (1)
+	DB 0x29, 3     ;     Usage Maximum (3)
+	DB 0x15, 0     ;     Logical Minimum (0)
+	DB 0x25, 1     ;     Logical Minimum (1)
+	DB 0x75, 1     ;     Report Size (1)
+	DB 0x95, 3     ;     Report Count (3)
+	DB 0x81, 2     ;     Input (Data, Variable, Absolute)
+
+	; Reserved bits
+	DB 0x95, 1     ;     Report Count (1)
+	DB 0x75, 5     ;     Report Size (5)
+	DB 0x81, 1     ;     Input (Constant, Absolute)
+
+	; Axis
+	DB 0x05, 1     ;     Usage Page (Generic Desktop)
+	DB 0x09, 0x30  ;     Usage (X)
+	DB 0x09, 0x31  ;     Usage (Y)
+	DB 0x09, 0x38  ;     Usage (Wheel)
+	DB 0x15, 0x81  ;     Logical Minimum (-127)
+	DB 0x25, 0x7f  ;     Logical Minimum (127)
+	DB 0x75, 8     ;     Report Size (8)
+	DB 0x95, 3     ;     Report Count (3)
+	DB 0x81, 6     ;     Input (Data, Variable, Relative)
+
+	DB 0xc0        ;   End Collection (Physical)
+	DB 0xc0        ; End Collection (Application)
+_mouse_report_descriptor_end:
+
 _clamp_size:
 	B0MOV A, wLengthLo
 	SUB   A, txSizeLo
@@ -1933,7 +1988,7 @@ _usb_get_desc_config:
 	B0MOV txPtrHi, A
 	MOV A, #_configuration_descriptor$L
 	B0MOV txPtrLo, A
-	MOV   A, #0x32
+	MOV   A, #59
 	B0MOV txSizeLo, A
 	JMP _usb_get_desc
 
@@ -1979,11 +2034,25 @@ _usb_get_string_product:
 _usb_get_desc_hid:
 _usb_get_desc_report:
 _usb_get_desc_physical:
+	MOV A, #'!'
+	CALL _uart_tx
+	B0MOV A, wIndexLo
+	CALL _uart_hex
+	B0BTS0 wIndexLo.0
+	JMP _usb_get_desc_hid_if1
 	MOV A, #_kbd_report_descriptor$M
 	B0MOV txPtrHi, A
 	MOV A, #_kbd_report_descriptor$L
 	B0MOV txPtrLo, A
 	MOV   A, #63
+	B0MOV txSizeLo, A
+	JMP _usb_get_desc
+_usb_get_desc_hid_if1:
+	MOV A, #_mouse_report_descriptor$M
+	B0MOV txPtrHi, A
+	MOV A, #_mouse_report_descriptor$L
+	B0MOV txPtrLo, A
+	MOV   A, #52
 	B0MOV txSizeLo, A
 	JMP _usb_get_desc
 
