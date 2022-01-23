@@ -1739,6 +1739,8 @@ _setup_dispatch_table:
 	JMP _usb_htd_vend_write_ram
 	DW 0xc092
 	JMP _usb_dth_vend_read_i2c
+	DW 0x4093
+	JMP _usb_htd_vend_write_i2c
 	DW 0xc094
 	JMP _usb_dth_vend_read_code
 	DW 0xFFFF
@@ -2239,9 +2241,34 @@ _usb_dth_vend_read_code:
 	RET
 
 _usb_dth_vend_read_i2c:
-	MOV A, #0x21  ; Write 1 byte
+	MOV A, #0
+	B0MOV UDP0, A
+
+	CALL _i2c_tp_read
+	B0MOV A, tpData0
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, tpData1
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, tpData2
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, tpData3
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, tpData4
+	B0MOV UDR0_W, A
+	INCMS UDP0
+
+	MOV A, #0x25  ; Write 5 byte
 	B0MOV UE0R, A
 	RET
+
+_usb_htd_vend_write_i2c:
+	B0MOV A, wValueLo
+	CALL _i2c_tp_write
+	JMP _usb_write_ep0
 
 _usb_htd_set_configuration:
 	; Only one configuration, nothing to do.
