@@ -438,7 +438,8 @@ _mainloop:
 	; Tickle watchdog
 	MOV A, #0x5a
 	B0MOV WDTR, A
-@@:
+
+	; Check for any events that need handling
 	B0BTS0 FEP0SETUP ; Jump if SETUP packet rx'd
 	JMP _usb_setup
 	B0BTS0 FEP0OUT
@@ -451,9 +452,11 @@ _mainloop:
 	JMP _usb_sof
 	B0BTS0 FSUSPEND
 	JMP _usb_suspend
-	B0BTS1 tpIRQ
+	B0BTS1 tpIRQ   ; Level-triggered, reset by reading data over I2C
 	JMP _tp_update
-	JMP @B
+
+	; Rinse and repeat
+	JMP _mainloop
 
 _usb_suspend:
 	MOV A, #'P'
