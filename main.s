@@ -106,6 +106,9 @@ usbState2      DS 1
 usbStateAddressValid EQU usbState2.0
 usbStateEnterFlasher EQU usbState2.1
 
+systemState    DS 1
+enableUart     EQU systemState.0
+
 xlatVal1       DS 1
 xlatVal2       DS 1
 
@@ -308,6 +311,32 @@ ORG 0x8 ; Interrupt vector
 
 ORG 0x10 ; Bootloader jumps here on successful canary check, start of payload execution
 _start:
+	JMP _preinit
+
+_default_settings0:
+	DB 0   ; Set to 1 to enable debugging over UART
+	DB 0   ; Set to 1 to enable FN/CTRL swap
+_default_settings1:
+	DB 0   ; Set to 1 to enable FN lock for F-key row
+	DB 0   ; Still unused
+
+_read_settings:
+	B0MOV Y, #_default_settings0$M
+	B0MOV Z, #_default_settings0$L
+	MOVC
+	CMPRS A, #0
+	B0BSET enableUart
+	B0BTS0 R.0
+	B0BSET stateFnCtrlSwap
+	B0MOV A, R
+	B0MOV Y, #_default_settings1$M
+	B0MOV Z, #_default_settings1$L
+	MOVC
+	CMPRS A, #0
+	B0BSET stateFnLock
+	RET
+
+_preinit:
 	; Set stack pointer and disable interrupts
 	MOV A, #7
 	B0MOV STKP, A
@@ -338,6 +367,8 @@ _start:
 	B0MOV URTX, A
 
 	; Send a message that we are alive
+	MOV A, #1  ; enableUart
+	B0MOV systemState, A  ; will be cleared by ram clear later
 	MOV A, #'H'
 	CALL _uart_tx
 	MOV A, #'i'
@@ -379,8 +410,6 @@ _start:
 	B0BTS1 URX   ; Jump if P0.5/URX is low
 	JMP _uart_shorted
 @@:
-	B0BSET 0xa9.4 ; Switch UTX back to UART
-
 
 	; Reset either from undervoltage (power-on) or external reset
 	; Cold reset state per datasheet:
@@ -397,16 +426,7 @@ _start:
 	JMP @B
 	B0MOV @YZ, A
 
-	B0BSET keyA
-	B0BSET keyINTERNATIONAL2
-	CALL _kbd_update_boot_keys
-
-	B0MOV A, bootKeys0
-	CALL _uart_hex
-	B0MOV A, bootKeys1
-	CALL _uart_hex
-	B0MOV A, bootKeys2
-	CALL _uart_hex
+	CALL _read_settings
 
 	; Setup GPIO
 	CALL _gpio_init
@@ -469,7 +489,6 @@ _usb_suspend:
 
 	; exit suspend
 	CALL _gpio_init
-	B0BSET 0xa9.4 ; Switch UTX to UART
 
 	; did host wake us?
 	B0BTS1 FSUSPEND
@@ -652,6 +671,9 @@ _gpio_init:
 	; Re-light LED
 	B0BCLR P5.3   ; Set to low level to light up
 	B0BSET P5M.3  ; Set to output
+	; Check if debug UART is enabled
+	B0BTS0 enableUart
+	B0BSET 0xa9.4 ; Switch UTX back to UART
 	;; Set UTX/URX to open-drain
 	;MOV A, #0x0c
 	;B0MOV P1OC, A
@@ -2490,6 +2512,8 @@ _inc_yz:
 	RET
 
 _uart_hex:
+	B0BTS1 enableUart
+	RET          ; Return if disabled
 	MOV R, A
 	SWAP R
 	CALL _uart_nibble
@@ -2505,6 +2529,8 @@ _uart_nibble:
 	; fall-through
 
 _uart_tx:
+	B0BTS1 enableUart
+	RET              ; Return if disabled
 	B0MOV URTXD1, A
 @@:
 	B0BTS1 FUTTXIRQ  ; Check if TX is done
