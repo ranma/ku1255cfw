@@ -570,6 +570,9 @@ _mouse_write_ep2:
 	MOV A, #32   ; EP2 begins at offset 32
 	B0MOV UDP0, A
 
+	B0BTS0 keyFN
+	JMP _mouse_write_ep2_alt
+
 	B0MOV A, tpData1  ; Button byte
 	B0MOV UDR0_W, A
 	INCMS UDP0
@@ -580,10 +583,35 @@ _mouse_write_ep2:
 	SUB   A, tpData3  ; Y-axis (inverted)
 	B0MOV UDR0_W, A
 	INCMS UDP0
-	MOV   A, #0
+	MOV   A, #0       ; Wheel
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	MOV   A, #0       ; AC Pan
+	B0MOV UDR0_W, A
+	JMP _mouse_write_ep2_exit
+
+_mouse_write_ep2_alt:
+	MOV A, #0
+	B0BTS0 tpData1.0
+	OR  A, #8         ; Button4 (back)
+	B0BTS0 tpData1.1
+	OR  A, #16        ; Button5 (forward)
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	MOV   A, #0       ; X-axis
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	MOV   A, #0       ; Y-axis
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, tpData3  ; Wheel
+	B0MOV UDR0_W, A
+	INCMS UDP0
+	B0MOV A, tpData2  ; AC Pan
 	B0MOV UDR0_W, A
 
-	MOV A, #4  ; EP2 count is 4
+_mouse_write_ep2_exit:
+	MOV A, #5  ; EP2 count is 5
 	B0MOV UE2R_C, A
 
 	; Set EP2 to ACK
@@ -1865,7 +1893,7 @@ _configuration_descriptor:
 	DB  0          ; bCountryCode (Not Supported)
 	DB  1          ; bNumDescriptors
 	DB  0x22       ; bDescriptorType (Report)
-	DB  52, 0      ; wDescriptorLength (52)
+	DB  61, 0      ; wDescriptorLength (61)
 
 	DB  7          ; bLength
 	DB  5          ; bDescriptorType (ENDPOINT)
@@ -1956,16 +1984,16 @@ _mouse_report_descriptor:
 	; Buttons
 	DB 0x05, 9     ;     Usage Page (Button)
 	DB 0x19, 1     ;     Usage Minimum (1)
-	DB 0x29, 3     ;     Usage Maximum (3)
+	DB 0x29, 5     ;     Usage Maximum (5)
 	DB 0x15, 0     ;     Logical Minimum (0)
 	DB 0x25, 1     ;     Logical Minimum (1)
 	DB 0x75, 1     ;     Report Size (1)
-	DB 0x95, 3     ;     Report Count (3)
+	DB 0x95, 5     ;     Report Count (5)
 	DB 0x81, 2     ;     Input (Data, Variable, Absolute)
 
 	; Reserved bits
 	DB 0x95, 1     ;     Report Count (1)
-	DB 0x75, 5     ;     Report Size (5)
+	DB 0x75, 3     ;     Report Size (3)
 	DB 0x81, 1     ;     Input (Constant, Absolute)
 
 	; Axis
@@ -1977,6 +2005,12 @@ _mouse_report_descriptor:
 	DB 0x25, 0x7f  ;     Logical Minimum (127)
 	DB 0x75, 8     ;     Report Size (8)
 	DB 0x95, 3     ;     Report Count (3)
+	DB 0x81, 6     ;     Input (Data, Variable, Relative)
+
+	; Pan axis
+	DB 0x05, 0xc   ;     Usage Page (Consumer Control)
+	DB 0x0a, 0x38, 0x02 ; Usage (AC Pan)
+	DB 0x95, 1     ;     Report Count (1)
 	DB 0x81, 6     ;     Input (Data, Variable, Relative)
 
 	DB 0xc0        ;   End Collection (Physical)
@@ -2081,7 +2115,7 @@ _usb_get_desc_hid_if1:
 	B0MOV txPtrHi, A
 	MOV A, #_mouse_report_descriptor$L
 	B0MOV txPtrLo, A
-	MOV   A, #52
+	MOV   A, #61
 	B0MOV txSizeLo, A
 	JMP _usb_get_desc
 
