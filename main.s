@@ -148,6 +148,8 @@ keyState15     DS 1 ; 120-
 keyState16     DS 1 ; 128-
 keyState17     DS 1 ; 136-
 
+extraState0    DS 1
+
 i2cTxData      DS 1
 i2cRxData      DS 1
 i2cBitCnt      DS 1
@@ -277,6 +279,15 @@ keyINTERNATIONAL6  EQU keyState17.4
 keyINTERNATIONAL7  EQU keyState17.5
 keyINTERNATIONAL8  EQU keyState17.6
 keyINTERNATIONAL9  EQU keyState17.7  ; 143
+
+keySLEEP           EQU extraState0.0
+keyBRIGHTNESSUP    EQU extraState0.1
+keyBRIGHTNESSDOWN  EQU extraState0.2
+keyCAMERATOGGLE    EQU extraState0.3
+keyMICTOGGLE       EQU extraState0.4
+keyXMUTE           EQU extraState0.5
+keyXVOLUP          EQU extraState0.6
+keyXVOLDOWN        EQU extraState0.7
 
 ; keyKPMEMSTORE      EQU 208
 ; keyKPMEMRECALL     EQU 209
@@ -649,8 +660,11 @@ _kbd_write_ep1:
 	B0MOV A, bootKeys5
 	B0MOV UDR0_W, A
 	INCMS UDP0
+	B0MOV A, extraState0
+	B0MOV UDR0_W, A
+	INCMS UDP0
 
-	MOV A, #8  ; EP1 count is 8
+	MOV A, #9  ; EP1 count is 9
 	B0MOV UE1R_C, A
 
 	; Set EP1 to ACK
@@ -855,6 +869,48 @@ _key_esc_set:
 	XOR modifierState2, A
 	RET
 
+_key_f4_clear:
+	B0BCLR keyF4
+	B0BCLR keyMICTOGGLE
+	RET
+_key_f4_set:
+	CALL _key_get_fnrow
+	B0BTS0 FC
+	JMP @F
+	B0BSET keyF4
+	RET
+@@:
+	B0BSET keyMICTOGGLE
+	RET
+
+_key_f5_clear:
+	B0BCLR keyF5
+	B0BCLR keyBRIGHTNESSDOWN
+	RET
+_key_f5_set:
+	CALL _key_get_fnrow
+	B0BTS0 FC
+	JMP @F
+	B0BSET keyF5
+	RET
+@@:
+	B0BSET keyBRIGHTNESSDOWN
+	RET
+
+_key_f6_clear:
+	B0BCLR keyF6
+	B0BCLR keyBRIGHTNESSUP
+	RET
+_key_f6_set:
+	CALL _key_get_fnrow
+	B0BTS0 FC
+	JMP @F
+	B0BSET keyF6
+	RET
+@@:
+	B0BSET keyBRIGHTNESSUP
+	RET
+
 _kbd_sense_row0:
 	; DB keyESC, keyF4, keyNONUSBACKSLASH, keyNONE, keyG, keyH, keyF6, keyINTERNATIONAL4
 	B0BTS0 S0
@@ -862,9 +918,9 @@ _kbd_sense_row0:
 	B0BTS1 S0
 	CALL _key_esc_set
 	B0BTS0 S1
-	B0BCLR keyF4
+	CALL _key_f4_clear
 	B0BTS1 S1
-	B0BSET keyF4
+	CALL _key_f4_set
 	B0BTS0 S2
 	B0BCLR keyNONUSBACKSLASH
 	B0BTS1 S2
@@ -882,9 +938,9 @@ _kbd_sense_row0:
 	B0BTS1 S5
 	B0BSET keyH
 	B0BTS0 S6
-	B0BCLR keyF6
+	CALL _key_f6_clear
 	B0BTS1 S6
-	B0BSET keyF6
+	CALL _key_f6_set
 	B0BTS0 S7
 	B0BCLR keyINTERNATIONAL4
 	B0BTS1 S7
@@ -900,9 +956,9 @@ _kbd_sense_row0:
 	B0BTS1 S9
 	B0BSET keyNONE
 	B0BTS0 S10
-	B0BCLR keyF5
+	CALL _key_f5_clear
 	B0BTS1 S10
-	B0BSET keyF5
+	CALL _key_f5_set
 	B0BTS0 S11
 	B0BCLR keyNONE
 	B0BTS1 S11
@@ -1273,6 +1329,20 @@ _kbd_sense_row4:
 	B0BSET keyPRINTSCREEN
 	RET
 
+_key_4_clear:
+	B0BCLR key4
+	B0BCLR keySLEEP
+	RET
+_key_4_set:
+	CALL _key_get_fnrow
+	B0BTS0 FC
+	JMP @F
+	B0BSET key4
+	RET
+@@:
+	B0BSET keySLEEP
+	RET
+
 _kbd_sense_row5:
 	; DB key1, key3, key2, keyNONE, key4, key7, key8, key9
 	B0BTS0 S0
@@ -1292,9 +1362,9 @@ _kbd_sense_row5:
 	B0BTS1 S3
 	B0BSET keyNONE
 	B0BTS0 S4
-	B0BCLR key4
+	CALL _key_4_clear
 	B0BTS1 S4
-	B0BSET key4
+	CALL _key_4_set
 	B0BTS0 S5
 	B0BCLR key7
 	B0BTS1 S5
@@ -1867,7 +1937,7 @@ _configuration_descriptor:
 	DB  0          ; bCountryCode (Not Supported)
 	DB  1          ; bNumDescriptors
 	DB  0x22       ; bDescriptorType (Report)
-	DB  63, 0      ; wDescriptorLength (63)
+	DB  91, 0      ; wDescriptorLength (91)
 
 	DB  7          ; bLength
 	DB  5          ; bDescriptorType (ENDPOINT)
@@ -1969,6 +2039,22 @@ _kbd_report_descriptor:
 	DB 0x19, 0     ;   Usage Minimum (0)
 	DB 0x29, 175   ;   Usage Maximum (175)
 	DB 0x81, 0     ;   Input (Data, Array)
+
+	; Consumer control
+	DB 0x05, 0xc   ;   Usage Page (Consumer)
+	DB 0x09, 0x32  ;   Usage (Sleep)
+	DB 0x09, 0x6f  ;   Usage (Brightness Increment)
+	DB 0x09, 0x70  ;   Usage (Brightness Decrement)
+	DB 0x09, 0x78  ;   Usage (Camera Access Toggle)
+	DB 0x09, 0xd5  ;   Usage (Start/Stop Microphone Capture)
+	DB 0x09, 0xe2  ;   Usage (Mute)
+	DB 0x09, 0xe9  ;   Usage (Volume Increment)
+	DB 0x09, 0xea  ;   Usage (Volume Decrement)
+	DB 0x15, 0     ;   Logical Minimum (0)
+	DB 0x25, 1     ;   Logical Minimum (1)
+	DB 0x75, 1     ;   Report Size (1)
+	DB 0x95, 8     ;   Report Count (8)
+	DB 0x81, 2     ;   Input (Data, Variable, Absolute)
 
 	DB 0xc0        ; End Collection (Application)
 _kbd_report_descriptor_end:
@@ -2107,7 +2193,7 @@ _usb_get_desc_physical:
 	B0MOV txPtrHi, A
 	MOV A, #_kbd_report_descriptor$L
 	B0MOV txPtrLo, A
-	MOV   A, #63
+	MOV   A, #91
 	B0MOV txSizeLo, A
 	JMP _usb_get_desc
 _usb_get_desc_hid_if1:
