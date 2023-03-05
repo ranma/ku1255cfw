@@ -624,8 +624,27 @@ stateFnLock        EQU modifierState2.1
 stateFnCtrlSwap    EQU modifierState2.2
 stateHiddenESC     EQU modifierState2.3
 
-
 .CODE
+JZ MACRO address
+	B0BTS0 FZ
+	JMP address
+ENDM
+
+JNZ MACRO address
+	B0BTS1 FZ
+	JMP address
+ENDM
+
+JC MACRO address
+	B0BTS0 FC
+	JMP address
+ENDM
+
+JNC MACRO address
+	B0BTS1 FC
+	JMP address
+ENDM
+
 ORG 0x0 ; Reset vector
 	; Jump to bootloader, checks canary and continues execution at 0x10 if found
 	JMP _canary_check
@@ -871,8 +890,8 @@ _usb_sof:
 
 	B0MOV A, bootKeys0
 	OR    A, bootKeys1
-	B0BTS0 FZ  ; Jump if kbdState is zero
-	JMP _mainloop
+	; Jump if kbdState is zero
+	JZ _mainloop
 
 	MOV A, #' '
 	CALL _uart_tx
@@ -1076,16 +1095,14 @@ _kbd_update_boot_keys_loop:
 	B0MOV A, keyStateIdx
 	MOV   Z, A
 	B0MOV A, @YZ
-	B0BTS0 FZ  ; Jump if zero
-	JMP _kbd_update_boot_keys_nextbyte
+	JZ _kbd_update_boot_keys_nextbyte
 
 	B0MOV keyStateVal, A
 	B0MOV R, #0x8
 
 @@:
 	RRCM keyStateVal
-	B0BTS1 FC  ; Jump if not carry set
-	JMP _kbd_update_boot_keys_nextbit
+	JNC _kbd_update_boot_keys_nextbit
 
 	; Write the boot key value
 	B0MOV A, bootKeyIdx
@@ -1094,8 +1111,7 @@ _kbd_update_boot_keys_loop:
 	; Check if we still have space
 	SUB   A, #1
 	SUB   A, #bootKeys5$L
-	B0BTS0 FC  ; Jump if carry set
-	JMP _kbd_update_boot_keys_rollover
+	JC _kbd_update_boot_keys_rollover
 
 	; Write the value
 	B0MOV A, bootKeyVal
@@ -1119,8 +1135,7 @@ _kbd_update_boot_keys_nextbyte:
 	MOV A, keyStateIdx
 	SUB A, #1
 	SUB A, #keyState17
-	B0BTS1 FC  ; Jump if not carry set
-	JMP _kbd_update_boot_keys_loop
+	JNC _kbd_update_boot_keys_loop
 
 	; normal exit
 	RET
@@ -1188,8 +1203,7 @@ _key_f4_clear:
 	RET
 _key_f4_set:
 	CALL _key_get_fnrow
-	B0BTS0 FC
-	JMP @F
+	JC @F
 	B0BSET keyF4
 	RET
 @@:
@@ -1202,8 +1216,7 @@ _key_f5_clear:
 	RET
 _key_f5_set:
 	CALL _key_get_fnrow
-	B0BTS0 FC
-	JMP @F
+	JC @F
 	B0BSET keyF5
 	RET
 @@:
@@ -1216,8 +1229,7 @@ _key_f6_clear:
 	RET
 _key_f6_set:
 	CALL _key_get_fnrow
-	B0BTS0 FC
-	JMP @F
+	JC @F
 	B0BSET keyF6
 	RET
 @@:
@@ -1300,8 +1312,7 @@ _key_f3_clear:
 	RET
 _key_f3_set:
 	CALL _key_get_fnrow
-	B0BTS0 FC
-	JMP @F
+	JC @F
 	B0BSET keyF3
 	RET
 @@:
@@ -1454,8 +1465,7 @@ _key_f1_clear:
 	RET
 _key_f1_set:
 	CALL _key_get_fnrow
-	B0BTS0 FC
-	JMP @F
+	JC @F
 	B0BSET keyF1
 	RET
 @@:
@@ -1468,8 +1478,7 @@ _key_f2_clear:
 	RET
 _key_f2_set:
 	CALL _key_get_fnrow
-	B0BTS0 FC
-	JMP @F
+	JC @F
 	B0BSET keyF2
 	RET
 @@:
@@ -1648,8 +1657,7 @@ _key_4_clear:
 	RET
 _key_4_set:
 	CALL _key_get_fnrow
-	B0BTS0 FC
-	JMP @F
+	JC @F
 	B0BSET key4
 	RET
 @@:
@@ -2173,8 +2181,7 @@ _usb_setup_default:
 _usb_dth_get_device_descriptor:
 	B0MOV A, wValueHi
 	ADD A, #0xfc
-	B0BTS0 FC
-	JMP _usb_get_desc_badidx
+	JC _usb_get_desc_badidx
 	B0MOV A, wValueHi
 .ALIGN 8
 	B0ADD PCL, A
@@ -2187,8 +2194,7 @@ _usb_dth_get_interface_descriptor:
 	B0MOV A, wValueHi
 	SUB A, #0x20
 	ADD A, #0xfc
-	B0BTS0 FC
-	JMP _usb_get_desc_badidx
+	JC _usb_get_desc_badidx
 	B0MOV A, wValueHi
 	SUB A, #0x20
 .ALIGN 8
@@ -2457,8 +2463,7 @@ _usb_get_desc_config:
 _usb_get_desc_string:
 	B0MOV A, wValueLo
 	ADD A, #0xfd
-	B0BTS0 FC
-	JMP _usb_get_desc_badidx
+	JC _usb_get_desc_badidx
 	B0MOV A, wValueLo
 .ALIGN 8
 	B0ADD PCL, A
@@ -2525,13 +2530,11 @@ _usb_write_ep0:
 	; Check if this is a 0byte-write and bail out early
 	B0MOV A, txSizeLo
 	OR    A, txSizeHi
-	B0BTS0 FZ ; Jump if zero
-	JMP _write_empty_to_ep0
+	JZ _write_empty_to_ep0
 
 	; Clamp packet byte count to EP0 size
 	B0MOV A, txSizeHi
-	B0BTS1 FZ ; Jump if not zero
-	JMP _write_to_ep0_big
+	JNZ _write_to_ep0_big
 	MOV A, txSizeLo
 	B0MOV R, A
 	MOV A, #EP0_BYTES
@@ -2830,8 +2833,8 @@ _usb_setup:
 	; host is writing to device, check if there will be OUT with data.
 	MOV A, wLengthLo
 	OR  A, wLengthHi
-	B0BTS0 FZ  ; Jump if length is 0
-	JMP _usb_setup_htd_no_data
+	; Jump if length is 0
+	JZ _usb_setup_htd_no_data
 
 	B0BSET FUE0M0   ; Change EP0 to ACK, wait for data
 	B0BSET usbStateHTDData

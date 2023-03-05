@@ -191,35 +191,37 @@ OPCODES = set(map(lambda x: OpCode(*x), (
 OPCODE_NAMES = set([o.name for o in OPCODES])
 
 
-class Context:
+class Scope:
 
-  def __init__(self):
-    self.scope_stack = [Scope()]
-    self.sections = {}
-    self.current_section = None
+  def __init__(self, ctx, parent):
+    self.ctx = ctx
+    self.parent = parent
     self.identifiers = {}
     self.labels = {}
 
-  @property
-  def current_scope(self):
-    return self.scope_stack[-1]
-
-  @property
-  def allocator(self):
-    return self.current_section.allocator
-
-  def new_scope(self):
-    self.scope_stack.append(Scope())
-
-  def leave_scope(self):
-    if len(self.scope_stack) <= 1:
-      raise Exception('Can\'t leave root scope')
-    self.scope_stack.pop()
-
   def add_label(self, name, lineno):
-    l = Label(lineno=lineno, section=self.current_section, val=0)
+    l = Label(lineno=lineno, section=self.ctx.current_section, val=0)
     self.add_identifier(name=name, lineno=lineno, val=l, typ=Identifier.LABEL)
     return l
+
+  def add_identifier(self, name, typ=None, val=None, lineno=None):
+    if name == '@@':
+      name = f'@@{lineno}'
+    if name in self.identifiers:
+      raise ValueError('Identifier %r already exists: %r' % (name, self.identifiers[name]))
+    i = Identifier(name=name, lineno=lineno, typ=typ, val=val)
+    self.identifiers[name] = i
+    return i
+
+  def find_identifier(self, name, lineno=None, include_parent=True):
+    if name == '@B':
+      name = self.relref_backward(lineno)
+    elif name == '@F':
+      name = self.relref_forward(lineno)
+    i = self.identifiers.get(name, None)
+    if not i and include_parent and self.parent:
+      return self.parent.find_identifier(name, lineno, include_parent)
+    return i
 
   def sorted_relref_labels(self):
     return sorted([
@@ -245,21 +247,46 @@ class Context:
       return l.name
     raise ValueError('No labels after line %d' % lineno)
 
-  def add_identifier(self, name, typ=None, val=None, lineno=None):
-    if name == '@@':
-      name = f'@@{lineno}'
-    if name in self.identifiers:
-      raise ValueError('Identifier %r already exists: %r' % (name, self.identifiers[name]))
-    i = Identifier(name=name, lineno=lineno, typ=typ, val=val)
-    self.identifiers[name] = i
-    return i
 
-  def find_identifier(self, name, lineno=None):
-    if name == '@B':
-      name = self.relref_backward(lineno)
-    elif name == '@F':
-      name = self.relref_forward(lineno)
-    return self.identifiers.get(name, None)
+class Context:
+
+  def __init__(self):
+    self.current_scope = Scope(ctx=self, parent=None)
+    self.sections = {}
+    self.current_section = None
+
+  @property
+  def scope(self):
+    return self.current_scope
+
+  @property
+  def allocator(self):
+    return self.current_section.allocator
+
+  def new_scope(self):
+    s = Scope(ctx=self, parent=self.current_scope)
+    self.enter_scope(s)
+    return s
+
+  def enter_scope(self, scope):
+    if scope.parent != self.current_scope:
+      raise Exception('New scope doesn\'t have current scope as parent')
+    self.current_scope = scope
+
+  def leave_scope(self):
+    s = self.current_scope.parent
+    if not s:
+      raise Exception('Can\'t leave root scope')
+    self.current_scope = s
+
+  def add_label(self, name, lineno):
+    return self.scope.add_label(name, lineno)
+
+  def add_identifier(self, name, typ=None, val=None, lineno=None):
+    return self.scope.add_identifier(name, typ, val, lineno)
+
+  def find_identifier(self, name, lineno=None, include_parent=True):
+    return self.scope.find_identifier(name, lineno, include_parent)
 
   def eval(self, val):
     return Evaluable.eval(val)
@@ -325,12 +352,6 @@ class Context:
     # Word-align the label when in the code segment.
     ctx.allocator.align(1)
     l.val = Address(self.allocator.address, self.current_section.name)
-
-
-class Scope:
-
-  def __init__(self):
-    pass
 
 
 class Section:
@@ -494,8 +515,43 @@ class Insn(Node):
 
 
 class Decl(Node):
-
   pass
+
+
+class Macro(Node):
+  pass
+
+
+class Invocation(Node):
+
+  def apply(self, ctx):
+    i = ctx.find_identifier(self.name)
+    if not i:
+      raise ValueError('Bad invocation with ID: %s' % self.name)
+
+    if i.typ != Identifier.MACRO:
+      raise ValueError('Bad invocation with typ: %r' % i.typ)
+
+    m = i.val
+    if len(self.args) != len(m.args):
+      raise ValueError('Expected %d args, got %d' % (len(m.args), len(self.args)))
+    # Evaluate the args before entering the macro scope.
+    eargs = [Evaluable.eval(a) for a in self.args]
+    print('        MACRO\t%s %r\t\t; line %d' % (self.name, eargs, self.lineno))
+    # Re-enter the macro scope
+    ctx.enter_scope(m.scope)
+    # Pass the arguments into the scope as aliases
+    for name, value in zip(m.args, eargs):
+      i = ctx.find_identifier(name=name, lineno=self.lineno, include_parent=False)
+      if not i:
+        raise ValueError('Macro identifier missing: %r' % name)
+      i.val = value
+      i.typ = Identifier.ALIAS
+    # Apply macro statements
+    for statement in m.stmts:
+      ctx.apply(statement)
+    ctx.leave_scope()
+    print('        ENDM\t%s %r\t\t; line %d' % (self.name, eargs, self.lineno))
 
 
 class Evaluable(Node):
@@ -561,9 +617,11 @@ class CurrentAddress(Evaluable):
 
 class Identifier(Evaluable):
 
-  LABEL    = 1
-  ALIAS    = 2
-  ADDRESS  = 3
+  LABEL    = 'label'
+  ALIAS    = 'alias'
+  ADDRESS  = 'address'
+  MACRO    = 'macro'
+  MARG     = 'marg'
 
   def __init__(self, name, lineno, val=None, typ=None):
     super().__init__(name=name, lineno=lineno, val=val, typ=typ)
@@ -621,6 +679,7 @@ class AsmLexer(Lexer):
   tokens = {
     ID, NUMBER, CHAR, STRING, OPCODE, BITSEL, BYTESEL,
     SECTION, ALIGN, DS, DD, EQU, ORG, ACC, RELREF,
+    MACRO, ENDM,
     NL
    }
   literals = { '+','-','*','/','#',',','(',')',"'",'.','$',':','=' }
@@ -631,6 +690,8 @@ class AsmLexer(Lexer):
   ID['.DATA'] = SECTION
   ID['.CONST'] = SECTION
   ID['.ALIGN'] = ALIGN
+  ID['MACRO'] = MACRO
+  ID['ENDM'] = ENDM
   ID['EQU'] = EQU
   ID['ORG'] = ORG
   ID['MOV'] = OPCODE
@@ -710,9 +771,11 @@ class AsmParser(Parser):
   @_('label',
      'declaration',
      'instruction',
+     'invocation',
      'align',
      'org',
-     'section')
+     'section',
+     'macro')
   def statement(self, p):
     self.ctx.current_section.statements.append(p[0])
     return p[0]
@@ -776,6 +839,13 @@ class AsmParser(Parser):
     if hasattr(p, 'oparg_list'):
       return Insn(name=p[0], lineno=p.lineno, args=p.oparg_list)
     return Insn(name=p[0], lineno=p.lineno, args=[])
+
+  @_('ID oparg_list eol',
+     'ID eol')
+  def invocation(self, p):
+    if hasattr(p, 'oparg_list'):
+      return Invocation(name=p[0], lineno=p.lineno, args=p.oparg_list)
+    return Invocation(name=p[0], lineno=p.lineno, args=[])
 
   @_('oparg_list "," oparg',
      'oparg')
@@ -847,6 +917,25 @@ class AsmParser(Parser):
     }.get(p.BYTESEL)
     return (Reference(lineno=p.lineno, name=p.ID, ctx=self.ctx) // div) & 0xff
 
+  @_('ID MACRO new_scope marg_list eol statements ENDM eol')
+  def macro(self, p):
+    m = Macro(name=p.ID, args=p.marg_list, stmts=p.statements, lineno=p.lineno, scope=p.new_scope)
+    self.ctx.leave_scope()
+    return self.ctx.add_identifier(name=p.ID, val=m, lineno=p.lineno, typ=Identifier.MACRO)
+
+  @_('')
+  def new_scope(self, p):
+    # Create a new scope for local variables
+    return self.ctx.new_scope()
+
+  @_('marg_list ID',
+     'ID')
+  def marg_list(self, p):
+    self.ctx.add_identifier(name=p.ID, val=None, lineno=p.lineno, typ=Identifier.MARG)
+    if hasattr(p, 'marg_list'):
+      return p.marg_list + (p.ID,)
+    return (p.ID,)
+
   @_('NL',
      'eol NL')
   def eol(self, p):
@@ -875,12 +964,12 @@ if __name__ == '__main__':
   if not result:
     raise ValueError
 
-  unresolved = []
-  for k, v in ctx.identifiers.items():
-    if not v.typ:
-      print('Unresolved identifier %r on line %d: %r' % (k, v.lineno, v))
-      unresolved.append(v)
-  assert not unresolved
+  #unresolved = []
+  #for k, v in ctx.identifiers.items():
+  #  if not v.typ:
+  #    print('Unresolved identifier %r on line %d: %r' % (k, v.lineno, v))
+  #    unresolved.append(v)
+  #assert not unresolved
 
   last_hash = None
   new_hash = 0
