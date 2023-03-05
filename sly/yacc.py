@@ -161,6 +161,9 @@ class YaccProduction:
         else:
             raise AttributeError(f"Can't reassign the value of attribute {name!r}")
 
+    def __repr__(self):
+        return 'YaccProduction{slice=%s, stack=%s}' % (self._slice, self._stack)
+
 # -----------------------------------------------------------------------------
 #                          === Grammar Representation ===
 #
